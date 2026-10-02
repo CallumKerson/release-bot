@@ -62,6 +62,49 @@ func TestSemverValidate(t *testing.T) {
 	}
 }
 
+func TestSemverCompare(t *testing.T) {
+	tests := []struct {
+		a, b string
+		want int
+	}{
+		{"1.2.3", "1.2.3", 0},
+		{"1.2.3", "1.2.4", -1},
+		{"1.10.0", "1.9.9", 1},
+		{"2.0.0", "1.99.99", 1},
+		{"0.9.0", "1.0.0", -1},
+	}
+	scheme, err := NewSemver("")
+	require.NoError(t, err)
+	for _, test := range tests {
+		got, err := scheme.Compare(test.a, test.b)
+		require.NoError(t, err)
+		assert.Equal(t, test.want, got, "%s vs %s", test.a, test.b)
+	}
+	_, err = scheme.Compare("1.2.3", "v1")
+	require.ErrorIs(t, err, ErrInvalid)
+}
+
+func TestCalverCompare(t *testing.T) {
+	tests := []struct {
+		format, a, b string
+		want         int
+	}{
+		{"YYYY.0M.MICRO", "2026.10.0", "2026.10.0", 0},
+		{"YYYY.0M.MICRO", "2026.10.2", "2026.10.10", -1},
+		{"YYYY.0M.MICRO", "2026.10.0", "2026.09.9", 1},
+		{"YYYY.0M.MICRO", "2025.12.9", "2026.01.0", -1},
+		{"MICRO-0D.0M.YYYY", "0-01.10.2026", "9-30.09.2026", 1},
+		{"YY.0W", "26.40", "25.52", 1},
+	}
+	for _, test := range tests {
+		scheme, err := NewCalver(test.format)
+		require.NoError(t, err)
+		got, err := scheme.Compare(test.a, test.b)
+		require.NoError(t, err)
+		assert.Equal(t, test.want, got, "%s: %s vs %s", test.format, test.a, test.b)
+	}
+}
+
 func TestCalverNext(t *testing.T) {
 	oct2 := time.Date(2026, time.October, 2, 12, 0, 0, 0, time.UTC)
 	tests := []struct {

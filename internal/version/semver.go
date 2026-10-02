@@ -1,6 +1,7 @@
 package version
 
 import (
+	"cmp"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -61,6 +62,23 @@ func (semver) Next(current string, bump Bump, _ time.Time) (string, error) {
 		return current, nil
 	}
 	return fmt.Sprintf("%d.%d.%d", major, minor, patch), nil
+}
+
+func (semver) Compare(a, b string) (int, error) {
+	partsA, err := parseSemver(a)
+	if err != nil {
+		return 0, err
+	}
+	partsB, err := parseSemver(b)
+	if err != nil {
+		return 0, err
+	}
+	for i := range partsA {
+		if c := cmp.Compare(partsA[i], partsB[i]); c != 0 {
+			return c, nil
+		}
+	}
+	return 0, nil
 }
 
 func parseSemver(ver string) ([3]int, error) {
