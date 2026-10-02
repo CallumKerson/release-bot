@@ -165,11 +165,16 @@ func nextVersion(scheme version.Scheme, plan *PackagePlan, now time.Time) (strin
 	default:
 		next, err = scheme.Next(plan.Current, plan.Bump, now)
 	}
+	if err != nil || plan.Current == "" {
+		return next, err
+	}
+	order, err := scheme.Compare(next, plan.Current)
 	if err != nil {
 		return "", err
 	}
-	if next == plan.Current {
-		return "", fmt.Errorf("%w: next version %s is the current version", version.ErrInvalid, next)
+	if order <= 0 {
+		return "", fmt.Errorf("%w: next version %s must be after the current version %s",
+			version.ErrInvalid, next, plan.Current)
 	}
 	return next, nil
 }

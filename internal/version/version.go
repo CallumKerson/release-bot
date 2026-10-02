@@ -49,6 +49,8 @@ type Scheme interface {
 	Next(current string, bump Bump, now time.Time) (string, error)
 	// Validate reports whether v is a well-formed version in this scheme.
 	Validate(v string) error
+	// Compare returns -1, 0 or +1 as a is older than, the same as, or newer than b.
+	Compare(a, b string) (int, error)
 }
 
 // ErrInvalid is returned for malformed versions, formats and scheme names.

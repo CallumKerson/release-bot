@@ -169,6 +169,20 @@ Feature: Releasing a repository as a single package
       | package | from  | to    |
       | my-tool | 0.9.0 | 1.0.0 |
 
+  Scenario: A Release-As footer can't go back to an older version
+    Given the git history:
+      """
+      A  chore: release 1.2.0
+         manifest  my-tool 1.2.0
+         tags      v1.2.0
+
+      B  chore: go back to the old numbering
+         footer  Release-As: 0.5.0
+      """
+    When release-bot runs
+    Then release-bot fails, saying "next version 0.5.0 must be after the current version 1.2.0"
+    And nothing in the repository changes
+
   Scenario: Commits that aren't releasable don't make a release
     Given the git history:
       """

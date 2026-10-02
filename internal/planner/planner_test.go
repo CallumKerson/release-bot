@@ -191,6 +191,18 @@ func TestInvalidReleaseAs(t *testing.T) {
 	require.ErrorIs(t, err, version.ErrInvalid)
 }
 
+func TestReleaseAsMustMoveForward(t *testing.T) {
+	cfg := mustConfig(t, monorepo)
+	for _, releaseAs := range []string{"1.2.0", "1.1.9", "0.9.0"} {
+		_, err := Build(&Input{
+			Config: cfg, Manifest: released, Now: now,
+			History: sameHistory(cfg, commit("m2", "chore: x\n\nRelease-As: "+releaseAs, "apps/app-a/a.go")),
+		})
+		require.ErrorIs(t, err, version.ErrInvalid, releaseAs)
+		assert.ErrorContains(t, err, "must be after the current version 1.2.0", releaseAs)
+	}
+}
+
 func TestInvalidManifestVersion(t *testing.T) {
 	cfg := mustConfig(t, monorepo)
 	_, err := Build(&Input{Config: cfg, Manifest: manifest.Manifest{"app-b": "1.2.3"}, Now: now})

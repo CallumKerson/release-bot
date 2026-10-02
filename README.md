@@ -89,7 +89,7 @@ Semantic versions go up by the largest change since the last release:
 | `fix:`, `perf:`, `revert:`                | patch | patch       |
 | anything else                             | none  | none        |
 
-A `Release-As: x.y.z` footer sets the next version outright.
+A `Release-As: x.y.z` footer sets the next version outright, as long as it is after the current version.
 Calendar versions take their date from the day of the release, and count releases within the same date with `MICRO`.
 
 ## Behaviour, by example
