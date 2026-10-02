@@ -26,6 +26,7 @@ A run does one of three things to a local repository: tags merged release commit
 ### Packages
 
 - `internal/conventional` - Parses conventional commit messages
+- `internal/version` - The `Bump` type and versioning schemes: semver and calver
 - `cmd/release-bot` - Cobra commands
 
 ### Testing
