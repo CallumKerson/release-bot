@@ -31,12 +31,14 @@ A run does one of three things to a local repository: tags merged release commit
 - `internal/manifest` - The versions manifest, a JSON map of released package to version
 - `internal/planner` - Pure: from config, manifest and per-package commit history to a `Plan`, with the reason each commit counts
 - `internal/changelog` - Renders a package release as markdown and prepends it to a changelog
+- `internal/git` - The git CLI adapter: history, files at revisions, tags, and writing a branch with plumbing
 - `cmd/release-bot` - Cobra commands
 
 ### Testing
 
 - Unit tests use testify/assert and testify/require
 - `internal/changelog/testdata` holds golden files; regenerate with `go test ./internal/changelog -update`
+- Git tests are isolated from the user's git config by `internal/testing/gitrepo.Isolate`
 
 ## Import Organization
 
