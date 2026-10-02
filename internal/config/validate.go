@@ -48,9 +48,6 @@ func (c *Config) validatePackage(pkg *Package) error {
 		errs = append(errs, fmt.Errorf("%w: package name %q must be letters, digits, '.', '_', '-' or '/'",
 			ErrInvalid, pkg.Name))
 	}
-	if _, err := pkg.VersionScheme(); err != nil {
-		errs = append(errs, fmt.Errorf("%w: %s: %w", ErrInvalid, pkg.Name, err))
-	}
 	if !strings.Contains(pkg.Tag, "{version}") {
 		errs = append(errs, fmt.Errorf("%w: %s %q must contain {version}", ErrInvalid, field("tag"), pkg.Tag))
 	} else {
@@ -115,17 +112,30 @@ func (c *Config) checkCycles() error {
 	return nil
 }
 
-// validateRefName applies the subset of git check-ref-format rules that a template can break.
+// refRules are the subset of git check-ref-format rules that a template can break.
+var refRules = []struct {
+	reason string
+	broken func(ref string) bool
+}{
+	{"is empty", func(ref string) bool { return ref == "" }},
+	{"contains a space or one of ~^:?*[\\", func(ref string) bool { return strings.ContainsAny(ref, " ~^:?*[\\") }},
+	{"contains ..", func(ref string) bool { return strings.Contains(ref, "..") }},
+	{"contains @{", func(ref string) bool { return strings.Contains(ref, "@{") }},
+	{"starts with /", func(ref string) bool { return strings.HasPrefix(ref, "/") }},
+	{"ends with /", func(ref string) bool { return strings.HasSuffix(ref, "/") }},
+	{"contains //", func(ref string) bool { return strings.Contains(ref, "//") }},
+	{"has a part starting with .", func(ref string) bool {
+		return strings.HasPrefix(ref, ".") || strings.Contains(ref, "/.")
+	}},
+	{"ends with .lock", func(ref string) bool { return strings.HasSuffix(ref, ".lock") }},
+	{"ends with .", func(ref string) bool { return strings.HasSuffix(ref, ".") }},
+}
+
 func validateRefName(field, ref string) error {
-	bad := ref == "" || strings.ContainsAny(ref, " ~^:?*[\\") || strings.Contains(ref, "..") ||
-		strings.Contains(
-			ref,
-			"@{",
-		) || strings.HasPrefix(ref, "/") || strings.HasSuffix(ref, "/") || strings.Contains(ref, "//") ||
-		strings.HasPrefix(ref, ".") || strings.Contains(ref, "/.") ||
-		strings.HasSuffix(ref, ".lock") || strings.HasSuffix(ref, ".")
-	if bad {
-		return fmt.Errorf("%w: %s %q is not a valid git ref name", ErrInvalid, field, ref)
+	for _, rule := range refRules {
+		if rule.broken(ref) {
+			return fmt.Errorf("%w: %s %q is not a valid git ref name: it %s", ErrInvalid, field, ref, rule.reason)
+		}
 	}
 	return nil
 }

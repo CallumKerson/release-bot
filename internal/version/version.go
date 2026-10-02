@@ -56,6 +56,7 @@ type Scheme interface {
 // ErrInvalid is returned for malformed versions, formats and scheme names.
 var ErrInvalid = errors.New("invalid version")
 
+// Names of the schemes, as the config gives them.
 const (
 	SchemeSemver = "semver"
 	SchemeCalver = "calver"

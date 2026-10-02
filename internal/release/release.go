@@ -168,12 +168,12 @@ func readManifest(ctx context.Context, repo Repo, cfg *config.Config, rev string
 	}
 	versions, err := manifest.Parse(data)
 	if err != nil {
-		return nil, fmt.Errorf("%s at %s: %w", cfg.Manifest, short(rev), err)
+		return nil, fmt.Errorf("%s at %s: %w", cfg.Manifest, vcs.Short(rev), err)
 	}
 	for name := range versions {
 		if pkg := cfg.Package(name); pkg == nil || !pkg.Release {
-			return nil, fmt.Errorf("%w: %s lists %q, which isn't a released package in the config",
-				manifest.ErrInvalid, cfg.Manifest, name)
+			return nil, fmt.Errorf("%w: %s lists %q, which isn't a released package in the config: "+
+				"remove it from the manifest, or add it to the config", manifest.ErrInvalid, cfg.Manifest, name)
 		}
 	}
 	return versions, nil
@@ -220,11 +220,7 @@ func buildBranch(ctx context.Context, repo Repo, cfg *config.Config, head string
 		files[rel.Changelog] = []byte(changelog.Prepend(string(existing), changelog.Render(rel, now)))
 		versions[rel.Name] = rel.Next
 		summary = append(summary, rel.Name+" "+rel.Next)
-		from := rel.Current
-		if from == "" {
-			from = "unreleased"
-		}
-		body = append(body, fmt.Sprintf("- %s %s -> %s", rel.Name, from, rel.Next))
+		body = append(body, fmt.Sprintf("- %s %s -> %s", rel.Name, rel.CurrentOrUnreleased(), rel.Next))
 	}
 	data, err := current.With(versions).Marshal()
 	if err != nil {
@@ -291,8 +287,4 @@ func manifestAt(ctx context.Context, repo Repo, rev, path string) (manifest.Mani
 		return manifest.Manifest{}, nil //nolint:nilerr // see above
 	}
 	return versions, nil
-}
-
-func short(sha string) string {
-	return sha[:min(len(sha), 7)]
 }

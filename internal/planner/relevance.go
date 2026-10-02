@@ -39,7 +39,7 @@ func owner(cfg *config.Config, file string) *config.Package {
 	var best *config.Package
 	for i := range cfg.Packages {
 		pkg := &cfg.Packages[i]
-		if pkg.Contains(file) && (best == nil || depth(pkg.Path) > depth(best.Path)) {
+		if pkg.Contains(file) && (best == nil || depth(pkg) > depth(best)) {
 			best = pkg
 		}
 	}
@@ -51,11 +51,11 @@ func owner(cfg *config.Config, file string) *config.Package {
 
 // depth orders paths so that nested packages win over the packages that enclose them.
 // Package paths that both contain a file are prefixes of each other, so length is enough.
-func depth(pkgPath string) int {
-	if pkgPath == "." {
+func depth(pkg *config.Package) int {
+	if pkg.IsRoot() {
 		return 0
 	}
-	return len(pkgPath)
+	return len(pkg.Path)
 }
 
 // closure returns pkg followed by every package it transitively depends on, each once.
@@ -131,7 +131,7 @@ func emptyCommitTarget(cfg *config.Config, commit *vcs.Commit) (*config.Package,
 		}
 	}
 	for i := range cfg.Packages {
-		if cfg.Packages[i].Path == "." {
+		if cfg.Packages[i].IsRoot() {
 			return &cfg.Packages[i], ByEmptyCommit
 		}
 	}

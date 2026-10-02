@@ -8,3 +8,8 @@ type Commit struct {
 	// Files are the paths the commit changed, relative to the repository root.
 	Files []string
 }
+
+// Short abbreviates a commit ID to the 7 characters git shows by default.
+func Short(sha string) string {
+	return sha[:min(len(sha), 7)]
+}

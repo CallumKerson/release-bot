@@ -3,6 +3,7 @@ package config
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"github.com/CallumKerson/release-bot/internal/version"
 )
 
+// Where release-bot writes, unless the config says otherwise.
 const (
 	DefaultBranch   = "release-bot/release"
 	DefaultManifest = ".release-bot-manifest.json"
@@ -24,6 +26,7 @@ const (
 	defaultTag     = "{name}-v{version}"
 	defaultRootTag = "v{version}"
 	changelogName  = "CHANGELOG.md"
+	rootPath       = "."
 )
 
 // Paths searched for the config file, relative to the repository root.
@@ -57,10 +60,8 @@ type Package struct {
 	// Path is a clean, slash-separated path relative to the repository root; "." is the root.
 	Path string
 	// Release is false for shared code that is tracked so its changes reach dependents, but is never tagged.
-	Release        bool
-	Scheme         string
-	CalverFormat   string
-	InitialVersion string
+	Release bool
+	Scheme  version.Scheme
 	// Tag is a template with {name}, {path} and {version} tokens.
 	Tag       string
 	Changelog string
@@ -144,8 +145,8 @@ func Parse(data []byte) (Config, error) {
 
 func resolve(raw *fileConfig) (Config, error) {
 	cfg := Config{
-		Branch:   orDefault(raw.Branch, DefaultBranch),
-		Manifest: orDefault(raw.Manifest, DefaultManifest),
+		Branch:   cmp.Or(raw.Branch, DefaultBranch),
+		Manifest: cmp.Or(raw.Manifest, DefaultManifest),
 		Bumps:    map[string]version.Bump{},
 	}
 	for commitType, name := range raw.Bump {
@@ -161,18 +162,24 @@ func resolve(raw *fileConfig) (Config, error) {
 		if err != nil {
 			return Config{}, fmt.Errorf("%w: packages.%s.path: %w", ErrInvalid, name, err)
 		}
+		scheme, err := version.New(
+			cmp.Or(rawPkg.Scheme, raw.Defaults.Scheme, version.SchemeSemver),
+			cmp.Or(rawPkg.CalverFormat, raw.Defaults.CalverFormat),
+			cmp.Or(rawPkg.InitialVersion, raw.Defaults.InitialVersion),
+		)
+		if err != nil {
+			return Config{}, fmt.Errorf("%w: %s: %w", ErrInvalid, name, err)
+		}
 		pkg := Package{
-			Name:           name,
-			Path:           pkgPath,
-			Release:        rawPkg.Release == nil || *rawPkg.Release,
-			Scheme:         firstSet(rawPkg.Scheme, raw.Defaults.Scheme, version.SchemeSemver),
-			CalverFormat:   firstSet(rawPkg.CalverFormat, raw.Defaults.CalverFormat),
-			InitialVersion: firstSet(rawPkg.InitialVersion, raw.Defaults.InitialVersion),
-			Tag:            firstSet(rawPkg.Tag, raw.Defaults.Tag, defaultTagFor(pkgPath)),
-			Changelog:      firstSet(rawPkg.Changelog, path.Join(pkgPath, changelogName)),
-			DependsOn:      rawPkg.DependsOn,
-			Also:           rawPkg.Also,
-			Exclude:        rawPkg.Exclude,
+			Name:      name,
+			Path:      pkgPath,
+			Release:   rawPkg.Release == nil || *rawPkg.Release,
+			Scheme:    scheme,
+			Tag:       cmp.Or(rawPkg.Tag, raw.Defaults.Tag, defaultTagFor(pkgPath)),
+			Changelog: cmp.Or(rawPkg.Changelog, path.Join(pkgPath, changelogName)),
+			DependsOn: rawPkg.DependsOn,
+			Also:      rawPkg.Also,
+			Exclude:   rawPkg.Exclude,
 		}
 		cfg.Packages = append(cfg.Packages, pkg)
 	}
@@ -181,7 +188,7 @@ func resolve(raw *fileConfig) (Config, error) {
 }
 
 func defaultTagFor(pkgPath string) string {
-	if pkgPath == "." {
+	if pkgPath == rootPath {
 		return defaultRootTag
 	}
 	return defaultTag
@@ -197,19 +204,6 @@ func cleanPath(raw string) (string, error) {
 		return "", fmt.Errorf("%q %w", raw, errOutsideRepo)
 	}
 	return cleaned, nil
-}
-
-func orDefault(value, fallback string) string {
-	return firstSet(value, fallback)
-}
-
-func firstSet(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 // Package returns the package with the given name, or nil if there is none.
@@ -233,16 +227,16 @@ func (c *Config) Released() []*Package {
 	return released
 }
 
-// VersionScheme returns the package's versioning scheme.
-func (p *Package) VersionScheme() (version.Scheme, error) {
-	return version.New(p.Scheme, p.CalverFormat, p.InitialVersion)
+// IsRoot reports whether the package is the whole repository.
+func (p *Package) IsRoot() bool {
+	return p.Path == rootPath
 }
 
 // TagFor renders the package's tag for a version.
 // For the root package "{path}/" renders as nothing, so "{path}/v{version}" gives "v1.2.3".
 func (p *Package) TagFor(ver string) string {
 	tag := p.Tag
-	if p.Path == "." {
+	if p.IsRoot() {
 		tag = strings.ReplaceAll(tag, "{path}/", "")
 	}
 	return strings.NewReplacer("{name}", p.Name, "{path}", p.Path, "{version}", ver).Replace(tag)
@@ -251,29 +245,25 @@ func (p *Package) TagFor(ver string) string {
 // Contains reports whether file is under the package's path.
 // It doesn't consider excludes, or other packages nested inside this one.
 func (p *Package) Contains(file string) bool {
-	return p.Path == "." || file == p.Path || strings.HasPrefix(file, p.Path+"/")
+	return p.IsRoot() || file == p.Path || strings.HasPrefix(file, p.Path+"/")
 }
 
 // Excludes reports whether one of the package's exclude globs matches file.
 func (p *Package) Excludes(file string) bool {
-	return matchesAny(p.Exclude, file)
+	_, ok := firstMatch(p.Exclude, file)
+	return ok
 }
 
 // AlsoMatch returns the first of the package's also globs that matches file.
 func (p *Package) AlsoMatch(file string) (string, bool) {
-	for _, glob := range p.Also {
+	return firstMatch(p.Also, file)
+}
+
+func firstMatch(globs []string, file string) (string, bool) {
+	for _, glob := range globs {
 		if ok, _ := doublestar.Match(glob, file); ok {
 			return glob, true
 		}
 	}
 	return "", false
-}
-
-func matchesAny(globs []string, file string) bool {
-	for _, glob := range globs {
-		if ok, _ := doublestar.Match(glob, file); ok {
-			return true
-		}
-	}
-	return false
 }
