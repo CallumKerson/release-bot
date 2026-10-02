@@ -1,7 +1,7 @@
 # Features
 
 Each `.feature` file describes how release-bot behaves, as examples written in [Gherkin](https://cucumber.io/docs/gherkin/reference/).
-They are also the integration tests: `go test ./cmd/release-bot` runs every scenario against a real, temporary git repository.
+They are also the integration tests: `go test ./features` runs every scenario against a real, temporary git repository.
 
 ## Reading a scenario
 
@@ -25,7 +25,7 @@ B  feat(lib-1): add retries
 ```
 
 Each commit starts with a label, here `A` and `B`, followed by its commit message.
-The indented lines below it describe the commit:
+The indented lines below it describe the commit, and list several files, versions or tags separated by commas:
 
 | Keyword    | Meaning                                                                          |
 | ---------- | -------------------------------------------------------------------------------- |
@@ -36,6 +36,7 @@ The indented lines below it describe the commit:
 | `body`     | A line of the commit message body                                                |
 | `footer`   | A footer line at the end of the commit message, such as `Release-As: 2.0.0`     |
 
+Blank lines and lines starting with `#` are ignored.
 The release config is committed with the first commit.
 
 ## Commit labels in expectations
@@ -52,7 +53,7 @@ release-bot's own commits get labels too:
 ## Running
 
 ```sh
-go test ./cmd/release-bot -run TestFeatures                         # every scenario
-go test ./cmd/release-bot -run 'TestFeatures/A_feature_in_lib-1'     # scenarios whose name starts with this
-go test ./cmd/release-bot -run TestFeatures -v -godog.format=pretty  # print each step as it runs
+go test ./features -run TestFeatures                         # every scenario
+go test ./features -run 'TestFeatures/A_feature_in_lib-1'     # scenarios whose name starts with this
+go test ./features -run TestFeatures -v -godog.format=pretty  # print each step as it runs
 ```

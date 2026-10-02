@@ -5,6 +5,7 @@
 
 set -euxo pipefail
 
+CLI=github.com/CallumKerson/release-bot/internal/cli
 COMMIT=$(git rev-parse HEAD)
 VERSION="$(git describe --tags --always)-dev+$(git rev-parse --short HEAD)"
-go build -ldflags "-s -w -X main.Version=$VERSION -X main.Commit=$COMMIT -X main.Date=$(date +%Y-%m-%dT%H:%M:%S%z)" -o . ./...
+go build -ldflags "-s -w -X $CLI.Version=$VERSION -X $CLI.Commit=$COMMIT -X $CLI.Date=$(date +%Y-%m-%dT%H:%M:%S%z)" -o . ./...

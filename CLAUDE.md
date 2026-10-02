@@ -34,7 +34,8 @@ A run does one of three things to a local repository: tags merged release commit
 - `internal/git` - The git CLI adapter: history, files at revisions, tags, and writing a branch with plumbing
 - `internal/release` - Orchestration: `Prepare` works out what a run does, `Apply` does it.
   It declares the `Repo` interface it needs
-- `cmd/release-bot` - Cobra commands `plan`, `run` and `version`, and text output
+- `internal/cli` - Cobra commands `plan`, `run` and `version`, and text output
+- `cmd/release-bot` - `main`, which runs `internal/cli`
 
 ### Data Flow
 
@@ -62,7 +63,7 @@ A run does one of three things to a local repository: tags merged release commit
 
 - Unit tests use testify/assert and testify/require
 - `internal/changelog/testdata` holds golden files; regenerate with `go test ./internal/changelog -update`
-- `features/*.feature` are [godog](https://github.com/cucumber/godog) scenarios run by `cmd/release-bot/features_test.go`.
+- `features/*.feature` are [godog](https://github.com/cucumber/godog) scenarios run by `features/features_test.go`.
   They are the integration tests and the behaviour spec, written to be read by non-experts; see `features/README.md`.
   Each scenario builds a temporary repository from a git history written in the feature, then runs the real commands in-process.
   Commit hashes in output are replaced by the history's commit labels.

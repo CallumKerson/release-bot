@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -22,7 +22,7 @@ type options struct {
 	now    func() time.Time
 }
 
-func NewPlanCommand(opts *options) *cobra.Command {
+func newPlanCommand(opts *options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "plan",
 		Short: "Explain what run would do, and why, without changing anything",
@@ -37,7 +37,7 @@ func NewPlanCommand(opts *options) *cobra.Command {
 	}
 }
 
-func NewRunCommand(opts *options) *cobra.Command {
+func newRunCommand(opts *options) *cobra.Command {
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "run",
