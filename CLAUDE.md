@@ -22,6 +22,7 @@ release-bot is a CLI that releases packages from conventional commits, like rele
 `ideas.local.md` (untracked) holds the background and the longer-term design.
 
 A run does one of three things to a local repository: tags merged release commits, rebuilds the release branch, or nothing.
+With `--github` it then publishes: pushes tags and the release branch, publishes GitHub releases, and opens or updates the release pull request.
 
 ### Packages
 
@@ -33,9 +34,11 @@ A run does one of three things to a local repository: tags merged release commit
 - `internal/changelog` - Renders a package release as markdown and prepends it to a changelog
 - `internal/vcs` - The `Commit` type that version control adapters return
 - `internal/git` - The git CLI adapter: history, files at revisions, tags, and writing a branch with plumbing
-- `internal/release` - Orchestration: `Prepare` works out what a run does, `Apply` does it.
-  It declares the `Repo` interface it needs
-- `internal/release/releasetest` - An in-memory `release.Repo`, and the contract tests every `release.Repo` must pass
+- `internal/release` - Orchestration: `Prepare` works out what a run does, `Apply` does it locally, `Publish` makes it public.
+  It declares the `Repo`, `Remote` and `Host` interfaces it needs
+- `internal/release/releasetest` - In-memory `release.Repo`, `release.Remote` and `release.Host` fakes, and the contract tests each implementation must pass
+- `internal/github` - The GitHub `release.Host`, over go-github: release pull requests and releases
+- `internal/github/githubtest` - A fake GitHub REST API over a bare git repository, for tests
 - `internal/cli` - Cobra commands `plan`, `run` and `version`, and text output
 - `cmd/release-bot` - `main`, which runs `internal/cli`
 
@@ -47,6 +50,8 @@ A run does one of three things to a local repository: tags merged release commit
 3. The planner keeps the commits relevant to each package (`relevance.go`) and computes the next versions
 4. `release.Prepare` renders changelogs and the new manifest into the release branch contents
 5. `release.Apply` creates the tags and writes the branch
+6. With `--github`, `release.Publish` pushes the tags and publishes a release of every current version that lacks one,
+   then pushes the branch and ensures its pull request
 
 ### Constraints that must not be broken
 
@@ -54,6 +59,7 @@ A run does one of three things to a local repository: tags merged release commit
   The release branch is written with `git commit-tree` on a temporary index, and refuses to rewrite the checked-out branch.
 - **Runs are idempotent.**
   Tags are only created for versions without one, and an unchanged release branch is left alone.
+  On GitHub, releases are only published for tags without one, and an unchanged pull request isn't edited.
 - **The manifest at HEAD is the source of truth for released versions**, and tags anchor where each release happened.
   Release commits are found by diffing the manifest, so squash, merge and rebase merges all work.
 - **The planner stays pure.**
@@ -64,13 +70,16 @@ A run does one of three things to a local repository: tags merged release commit
 ### Testing
 
 - Unit tests use testify/assert and testify/require
-- `internal/release` is unit tested against `releasetest.Fake`.
-  `releasetest.RunContract` runs against both the fake and the git adapter, and any new `release.Repo` should run it too
+- `internal/release` is unit tested against `releasetest.Fake` and `releasetest.FakeHost`.
+  `releasetest.RunContract` and `RunRemoteContract` run against both the fake and the git adapter, and `RunHostContract` against both `FakeHost` and the GitHub adapter; any new implementation should run them too
+- Nothing runs against the real GitHub, so `githubtest` aims to behave like it: go-github's types on the wire, refs looked up in a real bare repository, GitHub's documented errors, and merges made as GitHub makes them.
+  Requests it doesn't serve fail the test, so a new endpoint needs adding to the fake, with a link to GitHub's docs
 - `internal/changelog/testdata` holds golden files; regenerate with `go test ./internal/changelog -update`
 - `features/*.feature` are [godog](https://github.com/cucumber/godog) scenarios run by `features/features_test.go`.
   They are the integration tests and the behaviour spec, written to be read by non-experts; see `features/README.md`.
   Each scenario builds a temporary repository from a git history written in the feature, then runs the real commands in-process.
   Commit hashes in output are replaced by the history's commit labels.
+  `features/github.feature` puts the repository on a `githubtest` fake as its origin, with the environment a workflow provides
 - Git tests are isolated from the user's git config by `internal/testing/gitrepo.Isolate`
 
 ## Import Organization
