@@ -32,7 +32,7 @@ func NewPlanCommand(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return output(cmd.OutOrStdout(), opts, result, printPlan)
+			return output(cmd.OutOrStdout(), opts, result, func(out io.Writer) { printPlan(out, result) })
 		},
 	}
 }
@@ -55,12 +55,15 @@ It never changes the working tree, the index or the checked out branch.`,
 			if err != nil {
 				return err
 			}
+			var outcome *release.Outcome
 			if !dryRun {
-				if err := release.Apply(cmd.Context(), repo, result); err != nil {
+				if outcome, err = release.Apply(cmd.Context(), repo, result); err != nil {
 					return err
 				}
 			}
-			return output(cmd.OutOrStdout(), opts, result, printRun)
+			return output(cmd.OutOrStdout(), opts, runOutput{result, outcome}, func(out io.Writer) {
+				printRun(out, result, outcome)
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print what would be done without doing it")
@@ -84,14 +87,21 @@ func prepare(ctx context.Context, opts *options) (*git.Repo, *release.Result, er
 	return repo, result, err
 }
 
-func output(w io.Writer, opts *options, result *release.Result, text func(io.Writer, *release.Result)) error {
+// runOutput is what run prints as JSON. Outcome is nil for a dry run.
+type runOutput struct {
+	Result  *release.Result  `json:"result"`
+	Outcome *release.Outcome `json:"outcome,omitempty"`
+}
+
+// output prints value as JSON with --json, and otherwise prints text.
+func output(w io.Writer, opts *options, value any, text func(io.Writer)) error {
 	if !opts.json {
-		text(w, result)
+		text(w)
 		return nil
 	}
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(result); err != nil {
+	if err := encoder.Encode(value); err != nil {
 		return fmt.Errorf("writing JSON: %w", err)
 	}
 	return nil

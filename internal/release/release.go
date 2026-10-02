@@ -6,6 +6,7 @@ package release
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -40,43 +41,53 @@ type Repo interface {
 
 // Tag is a release that has been merged but not yet tagged.
 type Tag struct {
-	Package string `json:"package"`
-	Version string `json:"version"`
-	Name    string `json:"tag"`
-	// Commit is the commit that set the version in the manifest.
-	Commit string `json:"commit"`
+	Package       string `json:"package"`
+	Version       string `json:"version"`
+	Name          string `json:"name"`
+	ReleaseCommit string `json:"release_commit"`
 }
 
 // Branch is the content of the release branch.
 type Branch struct {
-	Name    string `json:"name"`
-	Message string `json:"message"`
-	// Paths are the changed files, sorted.
-	Paths []string `json:"files"`
+	Name    string
+	Message string
 	// Files are the new contents of the changed files, keyed by repository path.
-	Files map[string][]byte `json:"-"`
+	Files map[string][]byte
 }
 
-// Result is what a run will do, or after Apply, what it did.
+// Paths returns the paths of the changed files, sorted.
+func (b *Branch) Paths() []string {
+	return slices.Sorted(maps.Keys(b.Files))
+}
+
+// MarshalJSON lists the changed files by path, leaving out their contents.
+func (b *Branch) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Name    string   `json:"name"`
+		Message string   `json:"message"`
+		Files   []string `json:"files"`
+	}{b.Name, b.Message, b.Paths()})
+}
+
+// Result is what a run will do.
 type Result struct {
-	Head string `json:"head"`
-	// Tags are the merged releases to tag.
-	Tags []Tag        `json:"tags,omitempty"`
-	Plan planner.Plan `json:"plan"`
+	Head     string       `json:"head"`
+	Untagged []Tag        `json:"untagged,omitempty"`
+	Plan     planner.Plan `json:"plan"`
 	// Branch is nil when nothing is ready to release.
 	Branch *Branch `json:"branch,omitempty"`
-
-	// Applied is true once Apply has run.
-	Applied bool `json:"applied"`
-	// BranchCommit is the release branch commit after Apply.
-	BranchCommit string `json:"branch_commit,omitempty"`
-	// BranchChanged is false when Apply found the release branch already up to date.
-	BranchChanged bool `json:"branch_changed,omitempty"`
 }
 
 // Nothing reports whether the run has nothing to do.
 func (r *Result) Nothing() bool {
-	return len(r.Tags) == 0 && r.Branch == nil
+	return len(r.Untagged) == 0 && r.Branch == nil
+}
+
+// Outcome is what Apply did.
+type Outcome struct {
+	BranchCommit string `json:"branch_commit,omitempty"`
+	// BranchChanged is false when the release branch was already up to date.
+	BranchChanged bool `json:"branch_changed"`
 }
 
 // Prepare works out what a run does to the repository at HEAD, without changing anything.
@@ -109,11 +120,11 @@ func Prepare(ctx context.Context, repo Repo, cfg *config.Config, now time.Time) 
 			untagged = append(untagged, tag)
 		}
 	}
-	if result.Tags, err = releaseCommits(ctx, repo, cfg.Manifest, head, untagged); err != nil {
+	if result.Untagged, err = releaseCommits(ctx, repo, cfg.Manifest, head, untagged); err != nil {
 		return nil, err
 	}
-	for _, tag := range result.Tags {
-		bases[tag.Package] = tag.Commit
+	for _, tag := range result.Untagged {
+		bases[tag.Package] = tag.ReleaseCommit
 	}
 
 	history, err := collect(ctx, repo, cfg, bases, head)
@@ -124,29 +135,29 @@ func Prepare(ctx context.Context, repo Repo, cfg *config.Config, now time.Time) 
 	if err != nil {
 		return nil, err
 	}
-	if result.Branch, err = branch(ctx, repo, cfg, head, current, &result.Plan, now); err != nil {
+	if result.Branch, err = buildBranch(ctx, repo, cfg, head, current, &result.Plan, now); err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-// Apply creates the tags and writes the release branch that Prepare decided on, recording the outcome in result.
-func Apply(ctx context.Context, repo Repo, result *Result) error {
-	for _, tag := range result.Tags {
-		if err := repo.CreateTag(ctx, tag.Name, tag.Commit, tag.Package+" "+tag.Version); err != nil {
-			return err
+// Apply creates the tags and writes the release branch that Prepare decided on.
+func Apply(ctx context.Context, repo Repo, result *Result) (*Outcome, error) {
+	for _, tag := range result.Untagged {
+		if err := repo.CreateTag(ctx, tag.Name, tag.ReleaseCommit, tag.Package+" "+tag.Version); err != nil {
+			return nil, err
 		}
 	}
+	outcome := &Outcome{}
 	if result.Branch != nil {
 		commit, changed, err := repo.WriteBranch(ctx, result.Branch.Name, result.Head, result.Branch.Files,
 			result.Branch.Message)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		result.BranchCommit, result.BranchChanged = commit, changed
+		outcome.BranchCommit, outcome.BranchChanged = commit, changed
 	}
-	result.Applied = true
-	return nil
+	return outcome, nil
 }
 
 func readManifest(ctx context.Context, repo Repo, cfg *config.Config, rev string) (manifest.Manifest, error) {
@@ -188,8 +199,8 @@ func collect(ctx context.Context, repo Repo, cfg *config.Config, bases map[strin
 	return history, nil
 }
 
-// branch renders the release branch for the plan, or returns nil when nothing is releasing.
-func branch(ctx context.Context, repo Repo, cfg *config.Config, head string, current manifest.Manifest,
+// buildBranch renders the release branch for the plan, or returns nil when nothing is releasing.
+func buildBranch(ctx context.Context, repo Repo, cfg *config.Config, head string, current manifest.Manifest,
 	plan *planner.Plan, now time.Time,
 ) (*Branch, error) {
 	releases := plan.Releases()
@@ -223,7 +234,6 @@ func branch(ctx context.Context, repo Repo, cfg *config.Config, head string, cur
 	return &Branch{
 		Name:    cfg.Branch,
 		Message: "chore(release): " + strings.Join(summary, ", ") + "\n\n" + strings.Join(body, "\n") + "\n",
-		Paths:   slices.Sorted(maps.Keys(files)),
 		Files:   files,
 	}, nil
 }
@@ -253,7 +263,7 @@ func releaseCommits(ctx context.Context, repo Repo, path, head string, untagged 
 			if after[tag.Package] != tag.Version || before[tag.Package] == tag.Version {
 				return false
 			}
-			tag.Commit = commit
+			tag.ReleaseCommit = commit
 			found = append(found, tag)
 			return true
 		})

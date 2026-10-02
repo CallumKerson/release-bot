@@ -17,10 +17,10 @@ func short(sha string) string {
 
 // printPlan explains every package's next release and the commits behind it.
 func printPlan(out io.Writer, result *release.Result) {
-	if len(result.Tags) > 0 {
+	if len(result.Untagged) > 0 {
 		fmt.Fprintln(out, "Merged releases to tag:")
-		for _, tag := range result.Tags {
-			fmt.Fprintf(out, "  %s on %s\n", tag.Name, short(tag.Commit))
+		for _, tag := range result.Untagged {
+			fmt.Fprintf(out, "  %s on %s\n", tag.Name, short(tag.ReleaseCommit))
 		}
 		fmt.Fprintln(out)
 	}
@@ -44,7 +44,7 @@ func printPlan(out io.Writer, result *release.Result) {
 		return
 	}
 	fmt.Fprintf(out, "Release branch %s would change:\n", result.Branch.Name)
-	for _, path := range result.Branch.Paths {
+	for _, path := range result.Branch.Paths() {
 		fmt.Fprintf(out, "  %s\n", path)
 	}
 }
@@ -59,8 +59,8 @@ func printPackage(out io.Writer, pkg *planner.PackagePlan) {
 	} else {
 		fmt.Fprintf(out, "%s: %s, nothing to release\n", pkg.Name, current)
 	}
-	for i := range pkg.Entries {
-		entry := &pkg.Entries[i]
+	for i := range pkg.Releasable {
+		entry := &pkg.Releasable[i]
 		fmt.Fprintf(out, "  + %s (%s)\n", entry.Summary, short(entry.SHA))
 		for _, reason := range entry.Reasons {
 			fmt.Fprintf(out, "      %s\n", explain(pkg.Name, reason))
@@ -72,17 +72,17 @@ func printPackage(out io.Writer, pkg *planner.PackagePlan) {
 	}
 }
 
-// printRun summarises what a run did, or with --dry-run, would do.
-func printRun(out io.Writer, result *release.Result) {
+// printRun summarises what a run did, or for a dry run with no outcome, would do.
+func printRun(out io.Writer, result *release.Result, outcome *release.Outcome) {
 	if result.Nothing() {
 		fmt.Fprintln(out, "Nothing to release.")
 		return
 	}
-	for _, tag := range result.Tags {
-		if result.Applied {
-			fmt.Fprintf(out, "Tagged %s on %s\n", tag.Name, short(tag.Commit))
+	for _, tag := range result.Untagged {
+		if outcome != nil {
+			fmt.Fprintf(out, "Tagged %s on %s\n", tag.Name, short(tag.ReleaseCommit))
 		} else {
-			fmt.Fprintf(out, "Would tag %s on %s\n", tag.Name, short(tag.Commit))
+			fmt.Fprintf(out, "Would tag %s on %s\n", tag.Name, short(tag.ReleaseCommit))
 		}
 	}
 	if result.Branch == nil {
@@ -95,10 +95,10 @@ func printRun(out io.Writer, result *release.Result) {
 	}
 	summary := strings.Join(releases, ", ")
 	switch {
-	case !result.Applied:
+	case outcome == nil:
 		fmt.Fprintf(out, "Would update %s: %s\n", result.Branch.Name, summary)
-	case result.BranchChanged:
-		fmt.Fprintf(out, "Updated %s on %s: %s\n", result.Branch.Name, short(result.BranchCommit), summary)
+	case outcome.BranchChanged:
+		fmt.Fprintf(out, "Updated %s on %s: %s\n", result.Branch.Name, short(outcome.BranchCommit), summary)
 	default:
 		fmt.Fprintf(out, "%s is already up to date: %s\n", result.Branch.Name, summary)
 	}

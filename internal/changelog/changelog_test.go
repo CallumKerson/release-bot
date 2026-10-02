@@ -45,7 +45,7 @@ func entry(sha, message string, reasons ...planner.Reason) planner.Entry {
 func TestRender(t *testing.T) {
 	release := planner.PackagePlan{
 		Name: "app-a", Current: "1.2.0", Next: "2.0.0", Bump: version.Major,
-		Entries: []planner.Entry{
+		Releasable: []planner.Entry{
 			entry("1111111aaaa", "feat(api)!: drop v1 endpoints"),
 			entry("2222222bbbb", "feat: add retries\n\nBREAKING CHANGE: retry config\nmoved to [retry]"),
 			entry("3333333cccc", "fix(lib-1): handle nil",
@@ -64,9 +64,9 @@ func TestRender(t *testing.T) {
 
 func TestRenderSingleSection(t *testing.T) {
 	release := planner.PackagePlan{
-		Name:    "tool",
-		Next:    "0.1.1",
-		Entries: []planner.Entry{entry("abc", "fix: short sha")},
+		Name:       "tool",
+		Next:       "0.1.1",
+		Releasable: []planner.Entry{entry("abc", "fix: short sha")},
 	}
 	assert.Equal(t, "## 0.1.1 (2026-10-02)\n\n### Bug Fixes\n\n- short sha (abc)\n", Render(&release, date))
 }
