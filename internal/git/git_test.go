@@ -22,26 +22,10 @@ func open(t *testing.T, fixture *gitrepo.Repo) *Repo {
 	return repo
 }
 
-// build makes a repository with history, as releasetest.Builder does.
-func build(t *testing.T, history ...releasetest.Commit) *gitrepo.Repo {
-	t.Helper()
-	fixture := gitrepo.New(t)
-	for _, commit := range history {
-		for path, content := range commit.Files {
-			fixture.Write(path, content)
-		}
-		fixture.Commit(commit.Message)
-		for _, tag := range commit.Tags {
-			fixture.Git("tag", "--annotate", "--message", tag, tag)
-		}
-	}
-	return fixture
-}
-
 func TestContract(t *testing.T) {
 	releasetest.RunContract(t, func(t *testing.T, history ...releasetest.Commit) release.Repo {
 		t.Helper()
-		return open(t, build(t, history...))
+		return open(t, releasetest.NewGit(t, history...))
 	})
 }
 
@@ -50,7 +34,7 @@ func TestRemoteContract(t *testing.T) {
 		release.Repo, release.Remote, func(string) (string, bool),
 	) {
 		t.Helper()
-		fixture := build(t, history...)
+		fixture := releasetest.NewGit(t, history...)
 		origin := withOrigin(t, fixture)
 		repo := open(t, fixture)
 		remote := repo.Remote("origin")
@@ -72,7 +56,11 @@ func withOrigin(t *testing.T, fixture *gitrepo.Repo) string {
 }
 
 func TestPushTagsRefusesAConflictingTag(t *testing.T) {
-	fixture := build(t, releasetest.Commit{Message: "chore: one"}, releasetest.Commit{Message: "chore: two"})
+	fixture := releasetest.NewGit(
+		t,
+		releasetest.Commit{Message: "chore: one"},
+		releasetest.Commit{Message: "chore: two"},
+	)
 	origin := withOrigin(t, fixture)
 	fixture.Git("push", "--quiet", "origin", "HEAD~1:refs/tags/v1.0.0")
 	fixture.Git("tag", "v1.0.0", "HEAD")
