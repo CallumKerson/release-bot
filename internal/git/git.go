@@ -37,6 +37,8 @@ var (
 // Repo is a local git repository.
 type Repo struct {
 	root string
+	// identity is the environment that gives commits and tags an author.
+	identity []string
 }
 
 // Open opens the repository containing dir.
@@ -45,7 +47,9 @@ func Open(ctx context.Context, dir string) (*Repo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s is not in a git repository: %w", dir, err)
 	}
-	return &Repo{root: out}, nil
+	repo := &Repo{root: out}
+	repo.identity = repo.fallbackIdentity(ctx)
+	return repo, nil
 }
 
 // Root is the repository's top-level directory.
@@ -130,7 +134,7 @@ func (r *Repo) FileHistory(ctx context.Context, rev, path string) ([]string, err
 
 // CreateTag creates an annotated tag on commit.
 func (r *Repo) CreateTag(ctx context.Context, tag, commit, message string) error {
-	_, err := r.git(ctx, nil, r.identity(ctx), "tag", "--annotate", "--message", message, tag, commit)
+	_, err := r.git(ctx, nil, r.identity, "tag", "--annotate", "--message", message, tag, commit)
 	return err
 }
 
@@ -142,11 +146,7 @@ func (r *Repo) WriteBranch(ctx context.Context, branch, parent string, files map
 ) {
 	ref := "refs/heads/" + branch
 	if current, _ := r.git(ctx, nil, nil, "symbolic-ref", "--quiet", "HEAD"); current == ref {
-		return "", false, fmt.Errorf(
-			"%w: refusing to rewrite %s, switch to another branch first",
-			ErrCheckedOut,
-			branch,
-		)
+		return "", false, fmt.Errorf("%w: refusing to rewrite %s, switch branch first", ErrCheckedOut, branch)
 	}
 
 	tree, err := r.writeTree(ctx, parent, files)
@@ -157,20 +157,11 @@ func (r *Repo) WriteBranch(ctx context.Context, branch, parent string, files map
 		return existing, false, nil
 	}
 
-	commit, err = r.git(ctx, strings.NewReader(message), r.identity(ctx), "commit-tree", tree, "-p", parent, "-F", "-")
+	commit, err = r.git(ctx, strings.NewReader(message), r.identity, "commit-tree", tree, "-p", parent, "-F", "-")
 	if err != nil {
 		return "", false, err
 	}
-	if _, err := r.git(
-		ctx,
-		nil,
-		nil,
-		"update-ref",
-		"-m",
-		"release-bot: rebuild release branch",
-		ref,
-		commit,
-	); err != nil {
+	if _, err := r.git(ctx, nil, nil, "update-ref", "-m", "release-bot: rebuild "+branch, ref, commit); err != nil {
 		return "", false, err
 	}
 	return commit, true, nil
@@ -216,8 +207,8 @@ func (r *Repo) unchanged(ctx context.Context, ref, parent, tree string) (string,
 	return existing, existingTree == tree && existingParent == parent
 }
 
-// identity returns environment that gives commits and tags an author when git has none configured.
-func (r *Repo) identity(ctx context.Context) []string {
+// fallbackIdentity returns environment that gives commits and tags an author when git has none configured.
+func (r *Repo) fallbackIdentity(ctx context.Context) []string {
 	var env []string
 	if name, _ := r.git(ctx, nil, nil, "config", "user.name"); name == "" {
 		env = append(env, "GIT_AUTHOR_NAME="+fallbackName, "GIT_COMMITTER_NAME="+fallbackName)
@@ -263,12 +254,8 @@ func runRaw(ctx context.Context, dir string, stdin io.Reader, env []string, args
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return stdout.Bytes(), fmt.Errorf(
-			"git %s: %w: %s",
-			strings.Join(args, " "),
-			err,
-			strings.TrimSpace(stderr.String()),
-		)
+		detail := strings.TrimSpace(stderr.String())
+		return stdout.Bytes(), fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, detail)
 	}
 	return stdout.Bytes(), nil
 }

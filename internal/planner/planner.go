@@ -3,6 +3,7 @@
 package planner
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 	"time"
@@ -70,6 +71,11 @@ type PackagePlan struct {
 	Ignored []Entry `json:"ignored,omitempty"`
 }
 
+// CurrentOrUnreleased returns the current version, or "unreleased" for a package that has never been released.
+func (p *PackagePlan) CurrentOrUnreleased() string {
+	return cmp.Or(p.Current, "unreleased")
+}
+
 // Releasing reports whether the package gets a new version.
 func (p *PackagePlan) Releasing() bool {
 	return p.Next != ""
@@ -127,13 +133,9 @@ func unplaced(input *Input) []Entry {
 }
 
 func planPackage(input *Input, pkg *config.Package) (PackagePlan, error) {
-	scheme, err := pkg.VersionScheme()
-	if err != nil {
-		return PackagePlan{}, err
-	}
 	plan := PackagePlan{Name: pkg.Name, Current: input.Manifest[pkg.Name], Changelog: pkg.Changelog}
 	if plan.Current != "" {
-		if err := scheme.Validate(plan.Current); err != nil {
+		if err := pkg.Scheme.Validate(plan.Current); err != nil {
 			return PackagePlan{}, fmt.Errorf("manifest version: %w", err)
 		}
 	}
@@ -157,11 +159,11 @@ func planPackage(input *Input, pkg *config.Package) (PackagePlan, error) {
 		return plan, nil
 	}
 
-	plan.Next, err = nextVersion(scheme, &plan, input.Now)
+	next, err := nextVersion(pkg.Scheme, &plan, input.Now)
 	if err != nil {
 		return PackagePlan{}, err
 	}
-	plan.Tag = pkg.TagFor(plan.Next)
+	plan.Next, plan.Tag = next, pkg.TagFor(next)
 	return plan, nil
 }
 

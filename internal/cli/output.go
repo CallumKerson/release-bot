@@ -7,20 +7,15 @@ import (
 
 	"github.com/CallumKerson/release-bot/internal/planner"
 	"github.com/CallumKerson/release-bot/internal/release"
+	"github.com/CallumKerson/release-bot/internal/vcs"
 )
-
-const shortSHA = 7
-
-func short(sha string) string {
-	return sha[:min(len(sha), shortSHA)]
-}
 
 // printPlan explains every package's next release and the commits behind it.
 func printPlan(out io.Writer, result *release.Result) {
 	if len(result.Untagged) > 0 {
 		fmt.Fprintln(out, "Merged releases to tag:")
 		for _, tag := range result.Untagged {
-			fmt.Fprintf(out, "  %s on %s\n", tag.Name, short(tag.ReleaseCommit))
+			fmt.Fprintf(out, "  %s on %s\n", tag.Name, vcs.Short(tag.ReleaseCommit))
 		}
 		fmt.Fprintln(out)
 	}
@@ -34,7 +29,7 @@ func printPlan(out io.Writer, result *release.Result) {
 		fmt.Fprintln(out, "Empty commits that count toward no package, as their scope doesn't name a released package:")
 		for i := range result.Plan.Unplaced {
 			entry := &result.Plan.Unplaced[i]
-			fmt.Fprintf(out, "  ! %s (%s)\n", entry.Summary, short(entry.SHA))
+			fmt.Fprintf(out, "  ! %s (%s)\n", entry.Summary, vcs.Short(entry.SHA))
 		}
 	}
 
@@ -50,10 +45,7 @@ func printPlan(out io.Writer, result *release.Result) {
 }
 
 func printPackage(out io.Writer, pkg *planner.PackagePlan) {
-	current := pkg.Current
-	if current == "" {
-		current = "unreleased"
-	}
+	current := pkg.CurrentOrUnreleased()
 	if pkg.Releasing() {
 		fmt.Fprintf(out, "%s: %s -> %s (%s)\n", pkg.Name, current, pkg.Next, pkg.Bump)
 	} else {
@@ -61,14 +53,14 @@ func printPackage(out io.Writer, pkg *planner.PackagePlan) {
 	}
 	for i := range pkg.Releasable {
 		entry := &pkg.Releasable[i]
-		fmt.Fprintf(out, "  + %s (%s)\n", entry.Summary, short(entry.SHA))
+		fmt.Fprintf(out, "  + %s (%s)\n", entry.Summary, vcs.Short(entry.SHA))
 		for _, reason := range entry.Reasons {
 			fmt.Fprintf(out, "      %s\n", explain(pkg.Name, reason))
 		}
 	}
 	for i := range pkg.Ignored {
 		entry := &pkg.Ignored[i]
-		fmt.Fprintf(out, "  - %s (%s), %s\n", entry.Summary, short(entry.SHA), ignoredBecause(entry))
+		fmt.Fprintf(out, "  - %s (%s), %s\n", entry.Summary, vcs.Short(entry.SHA), ignoredBecause(entry))
 	}
 }
 
@@ -80,9 +72,9 @@ func printRun(out io.Writer, result *release.Result, outcome *release.Outcome) {
 	}
 	for _, tag := range result.Untagged {
 		if outcome != nil {
-			fmt.Fprintf(out, "Tagged %s on %s\n", tag.Name, short(tag.ReleaseCommit))
+			fmt.Fprintf(out, "Tagged %s on %s\n", tag.Name, vcs.Short(tag.ReleaseCommit))
 		} else {
-			fmt.Fprintf(out, "Would tag %s on %s\n", tag.Name, short(tag.ReleaseCommit))
+			fmt.Fprintf(out, "Would tag %s on %s\n", tag.Name, vcs.Short(tag.ReleaseCommit))
 		}
 	}
 	if result.Branch == nil {
@@ -98,7 +90,7 @@ func printRun(out io.Writer, result *release.Result, outcome *release.Outcome) {
 	case outcome == nil:
 		fmt.Fprintf(out, "Would update %s: %s\n", result.Branch.Name, summary)
 	case outcome.BranchChanged:
-		fmt.Fprintf(out, "Updated %s on %s: %s\n", result.Branch.Name, short(outcome.BranchCommit), summary)
+		fmt.Fprintf(out, "Updated %s on %s: %s\n", result.Branch.Name, vcs.Short(outcome.BranchCommit), summary)
 	default:
 		fmt.Fprintf(out, "%s is already up to date: %s\n", result.Branch.Name, summary)
 	}

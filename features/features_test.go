@@ -20,6 +20,7 @@ import (
 	"github.com/CallumKerson/release-bot/internal/config"
 	"github.com/CallumKerson/release-bot/internal/manifest"
 	"github.com/CallumKerson/release-bot/internal/testing/gitrepo"
+	"github.com/CallumKerson/release-bot/internal/vcs"
 )
 
 // These steps run each scenario against a fresh git repository, through the real commands.
@@ -495,7 +496,7 @@ func (w *world) readable(text string) string {
 		text = strings.ReplaceAll(text, sha, name)
 	}
 	for sha, name := range w.shas {
-		text = strings.ReplaceAll(text, sha[:7], name)
+		text = strings.ReplaceAll(text, vcs.Short(sha), name)
 	}
 	return strings.ReplaceAll(text, w.dir, "<repo>")
 }

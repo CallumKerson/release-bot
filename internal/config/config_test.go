@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,16 +56,18 @@ func TestParseMonorepo(t *testing.T) {
 
 	appA := cfg.Package("app-a")
 	require.NotNil(t, appA)
+	semver, err := version.NewSemver("")
+	require.NoError(t, err)
 	assert.Equal(t, &Package{
-		Name: "app-a", Path: "apps/app-a", Release: true, Scheme: "semver",
+		Name: "app-a", Path: "apps/app-a", Release: true, Scheme: semver,
 		Tag: "{name}-v{version}", Changelog: "apps/app-a/CHANGELOG.md", DependsOn: []string{"lib-1", "lib-2"},
 	}, appA)
 	assert.Equal(t, "app-a-v1.2.3", appA.TagFor("1.2.3"))
 
 	appB := cfg.Package("app-b")
 	assert.Equal(t, "apps/app-b", appB.Path)
-	assert.Equal(t, "calver", appB.Scheme)
-	assert.Equal(t, "YYYY.0M.MICRO", appB.CalverFormat)
+	assert.NoError(t, appB.Scheme.Validate("2026.10.0"), "YYYY.0M.MICRO calver")
+	assert.Error(t, appB.Scheme.Validate("1.2.3"))
 
 	lib2 := cfg.Package("lib-2")
 	assert.False(t, lib2.Release)
@@ -90,7 +93,9 @@ initial-version = "1.0.0"
 	tool := cfg.Package("tool")
 	assert.Equal(t, "v1.0.0", tool.TagFor("1.0.0"))
 	assert.Equal(t, "CHANGELOG.md", tool.Changelog)
-	assert.Equal(t, "1.0.0", tool.InitialVersion)
+	initial, err := tool.Scheme.Initial(time.Time{})
+	require.NoError(t, err)
+	assert.Equal(t, "1.0.0", initial)
 }
 
 func TestParseDefaultsApplyToEveryPackage(t *testing.T) {
@@ -110,10 +115,10 @@ tag = "svc@{version}"
 	require.NoError(t, err)
 	root := cfg.Package("root")
 	assert.Equal(t, "v26.10.0", root.TagFor("26.10.0"))
-	assert.Equal(t, "YY.0M.MICRO", root.CalverFormat)
+	assert.NoError(t, root.Scheme.Validate("26.10.0"), "YY.0M.MICRO calver")
 	svc := cfg.Package("svc")
 	assert.Equal(t, "svc@26.10.0", svc.TagFor("26.10.0"))
-	assert.Equal(t, "calver", svc.Scheme)
+	assert.NoError(t, svc.Scheme.Validate("26.10.0"), "YY.0M.MICRO calver")
 }
 
 func TestParseErrors(t *testing.T) {

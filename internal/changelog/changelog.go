@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/CallumKerson/release-bot/internal/planner"
+	"github.com/CallumKerson/release-bot/internal/vcs"
 )
 
 const (
 	title         = "# Changelog"
-	shortSHA      = 7
 	breakingTitle = "⚠ BREAKING CHANGES"
 	otherTitle    = "Miscellaneous"
 )
@@ -83,7 +83,7 @@ func item(entry *planner.Entry, text string) string {
 		line.WriteString("**" + entry.Commit.Scope + ":** ")
 	}
 	line.WriteString(text)
-	fmt.Fprintf(&line, " (%s)", entry.SHA[:min(len(entry.SHA), shortSHA)])
+	fmt.Fprintf(&line, " (%s)", vcs.Short(entry.SHA))
 	if entry.Inherited() {
 		line.WriteString(" (via " + strings.Join(vias(entry), ", ") + ")")
 	}
