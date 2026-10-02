@@ -25,7 +25,12 @@ A run does one of three things to a local repository: tags merged release commit
 
 ### Packages
 
+- `internal/conventional` - Parses conventional commit messages
 - `cmd/release-bot` - Cobra commands
+
+### Testing
+
+- Unit tests use testify/assert and testify/require
 
 ## Import Organization
 
