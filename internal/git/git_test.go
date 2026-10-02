@@ -2,7 +2,9 @@ package git
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,21 +22,64 @@ func open(t *testing.T, fixture *gitrepo.Repo) *Repo {
 	return repo
 }
 
+// build makes a repository with history, as releasetest.Builder does.
+func build(t *testing.T, history ...releasetest.Commit) *gitrepo.Repo {
+	t.Helper()
+	fixture := gitrepo.New(t)
+	for _, commit := range history {
+		for path, content := range commit.Files {
+			fixture.Write(path, content)
+		}
+		fixture.Commit(commit.Message)
+		for _, tag := range commit.Tags {
+			fixture.Git("tag", "--annotate", "--message", tag, tag)
+		}
+	}
+	return fixture
+}
+
 func TestContract(t *testing.T) {
 	releasetest.RunContract(t, func(t *testing.T, history ...releasetest.Commit) release.Repo {
 		t.Helper()
-		fixture := gitrepo.New(t)
-		for _, commit := range history {
-			for path, content := range commit.Files {
-				fixture.Write(path, content)
-			}
-			fixture.Commit(commit.Message)
-			for _, tag := range commit.Tags {
-				fixture.Git("tag", "--annotate", "--message", tag, tag)
-			}
-		}
-		return open(t, fixture)
+		return open(t, build(t, history...))
 	})
+}
+
+func TestRemoteContract(t *testing.T) {
+	releasetest.RunRemoteContract(t, func(t *testing.T, history ...releasetest.Commit) (
+		release.Repo, release.Remote, func(string) (string, bool),
+	) {
+		t.Helper()
+		fixture := build(t, history...)
+		origin := withOrigin(t, fixture)
+		repo := open(t, fixture)
+		remote := repo.Remote("origin")
+		return repo, remote, func(ref string) (string, bool) {
+			out, err := exec.CommandContext(t.Context(), "git", "--git-dir", origin,
+				"rev-parse", "--verify", "--quiet", ref+"^{commit}").Output()
+			return strings.TrimSpace(string(out)), err == nil
+		}
+	})
+}
+
+// withOrigin gives fixture an empty bare repository as its origin, and returns the bare repository's path.
+func withOrigin(t *testing.T, fixture *gitrepo.Repo) string {
+	t.Helper()
+	origin := filepath.Join(t.TempDir(), "origin.git")
+	fixture.Git("init", "--quiet", "--bare", origin)
+	fixture.Git("remote", "add", "origin", origin)
+	return origin
+}
+
+func TestPushTagsRefusesAConflictingTag(t *testing.T) {
+	fixture := build(t, releasetest.Commit{Message: "chore: one"}, releasetest.Commit{Message: "chore: two"})
+	origin := withOrigin(t, fixture)
+	fixture.Git("push", "--quiet", "origin", "HEAD~1:refs/tags/v1.0.0")
+	fixture.Git("tag", "v1.0.0", "HEAD")
+
+	err := open(t, fixture).Remote("origin").PushTags(t.Context(), []string{"v1.0.0"})
+	require.ErrorIs(t, err, ErrTagConflict)
+	assert.Equal(t, fixture.Git("rev-parse", "HEAD~1"), fixture.Git("--git-dir", origin, "rev-parse", "v1.0.0"))
 }
 
 func TestOpenFindsTheRoot(t *testing.T) {
