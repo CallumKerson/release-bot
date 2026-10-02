@@ -92,13 +92,18 @@ Semantic versions go up by the largest change since the last release:
 A `Release-As: x.y.z` footer sets the next version outright.
 Calendar versions take their date from the day of the release, and count releases within the same date with `MICRO`.
 
+## Behaviour, by example
+
+The [features](features/README.md) directory describes release-bot's behaviour as plain-language scenarios, each with the git history it starts from.
+They double as the integration tests.
+
 ## Development
 
 This project uses [mise](https://mise.jdx.dev/) for tools and tasks, and [hk](https://hk.jdx.dev/) for linting.
 
 ```sh
 mise run golang:compile   # build ./release-bot
-mise run test             # unit tests
+mise run test             # unit tests and feature scenarios
 mise run fix-all          # format and fix
 mise run ci               # what CI runs
 ```

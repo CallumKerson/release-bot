@@ -9,7 +9,7 @@ Run `mise tasks` to see all available tasks.
 Go modules are downloaded automatically before `mise run` when `go.mod` or `go.sum` change, through mise's experimental `go` deps provider.
 
 - **Compile**: `mise run golang:compile` - Compiles the binary for the current OS/architecture
-- **Test**: `mise run test` or `go test ./...` - Runs the unit tests
+- **Test**: `mise run test` or `go test ./...` - Runs unit tests and the feature scenarios
 - **Fix**: `mise run fix-all` - Runs all formatters and auto-fixable linters via [hk](https://hk.jdx.dev/)
 - **Check**: `mise run check-all` - Runs all linters without fixing
 - **CI**: `mise run ci` - Runs `check-auto` and `test`
@@ -62,6 +62,10 @@ A run does one of three things to a local repository: tags merged release commit
 
 - Unit tests use testify/assert and testify/require
 - `internal/changelog/testdata` holds golden files; regenerate with `go test ./internal/changelog -update`
+- `features/*.feature` are [godog](https://github.com/cucumber/godog) scenarios run by `cmd/release-bot/features_test.go`.
+  They are the integration tests and the behaviour spec, written to be read by non-experts; see `features/README.md`.
+  Each scenario builds a temporary repository from a git history written in the feature, then runs the real commands in-process.
+  Commit hashes in output are replaced by the history's commit labels.
 - Git tests are isolated from the user's git config by `internal/testing/gitrepo.Isolate`
 
 ## Import Organization
