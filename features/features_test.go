@@ -62,6 +62,9 @@ type world struct {
 	labels map[string]string
 	shas   map[string]string
 
+	// env is the environment release-bot sees.
+	env map[string]string
+
 	// before is the repository as it was before the last command ran.
 	before snapshot
 	output string
@@ -74,7 +77,7 @@ type snapshot struct {
 }
 
 func initializeScenario(scenario *godog.ScenarioContext) {
-	state := &world{labels: map[string]string{}, shas: map[string]string{}}
+	state := &world{labels: map[string]string{}, shas: map[string]string{}, env: map[string]string{}}
 	scenario.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		dir, err := os.MkdirTemp("", "release-bot-feature-")
 		if err != nil {
@@ -240,7 +243,7 @@ func (w *world) releaseBot(ctx context.Context, args ...string) error {
 	if w.before, err = w.snapshot(ctx); err != nil {
 		return err
 	}
-	cmd := cli.NewRootCommand(func() time.Time { return w.today })
+	cmd := cli.NewRootCommand(func() time.Time { return w.today }, w.getenv)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
@@ -499,6 +502,10 @@ func (w *world) readable(text string) string {
 		text = strings.ReplaceAll(text, vcs.Short(sha), name)
 	}
 	return strings.ReplaceAll(text, w.dir, "<repo>")
+}
+
+func (w *world) getenv(name string) string {
+	return w.env[name]
 }
 
 func (w *world) write(path, content string) error {

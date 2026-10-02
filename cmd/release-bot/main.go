@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	if err := cli.NewRootCommand(time.Now).Execute(); err != nil {
+	if err := cli.NewRootCommand(time.Now, os.Getenv).Execute(); err != nil {
 		os.Exit(1)
 	}
 }
