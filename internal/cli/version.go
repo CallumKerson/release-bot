@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"fmt"
@@ -6,13 +6,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Build information, set with -ldflags "-X" at build time.
 var (
 	Version = "development"
 	Commit  = "development"
 	Date    = "development"
 )
 
-func NewVersionCommand() *cobra.Command {
+func newVersionCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print version and build information",

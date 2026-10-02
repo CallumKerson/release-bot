@@ -1,4 +1,5 @@
-package main
+// Package features runs the behaviour scenarios in this directory against the real commands.
+package features
 
 import (
 	"errors"
@@ -9,28 +10,7 @@ import (
 // errHistory is wrapped by every mistake in a feature's git history.
 var errHistory = errors.New("can't read the history")
 
-// historyCommit is one commit of the git history written in a feature file:
-//
-//	A  chore: first release
-//	   changes   apps/app-a/main.go, libs/lib-1/lib.go
-//	   manifest  app-a 1.2.0, app-b 2026.09.0
-//	   tags      app-a-v1.2.0, app-b-v2026.09.0
-//
-//	B  feat(lib-1): add retries
-//	   changes   libs/lib-1/retry.go
-//	   footer    BREAKING CHANGE: retries are on by default
-//
-// An unindented line starts a commit: a label for the commit, then its message.
-// Indented lines describe the commit, one keyword each:
-//
-//	changes   files the commit creates or edits, separated by commas
-//	deletes   files the commit deletes
-//	manifest  the versions the commit writes to the manifest, as "package version" pairs
-//	tags      tags to create on the commit
-//	body      a line of the commit message body
-//	footer    a footer line at the end of the commit message
-//
-// Blank lines and lines starting with # are ignored.
+// historyCommit is one commit of the git history written in a feature file, in the format described in README.md.
 type historyCommit struct {
 	label    string
 	subject  string

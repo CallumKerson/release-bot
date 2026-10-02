@@ -1,4 +1,4 @@
-package main
+package features
 
 import (
 	"bytes"
@@ -16,16 +16,16 @@ import (
 
 	"github.com/cucumber/godog"
 
+	"github.com/CallumKerson/release-bot/internal/cli"
 	"github.com/CallumKerson/release-bot/internal/config"
 	"github.com/CallumKerson/release-bot/internal/manifest"
 	"github.com/CallumKerson/release-bot/internal/testing/gitrepo"
 )
 
-// The feature files in /features describe release-bot's behaviour in plain language.
 // These steps run each scenario against a fresh git repository, through the real commands.
-// Run one scenario with: go test ./cmd/release-bot -v -run TestFeatures/<Scenario_name> -godog.format=pretty
+// See README.md for how to run them.
 
-var godogOptions = godog.Options{Format: "progress", Paths: []string{"../../features"}, Strict: true}
+var godogOptions = godog.Options{Format: "progress", Paths: []string{"."}, Strict: true}
 
 func init() { //nolint:gochecknoinits // godog flags must be registered before flag.Parse
 	godog.BindFlags("godog.", flag.CommandLine, &godogOptions)
@@ -239,7 +239,7 @@ func (w *world) releaseBot(ctx context.Context, args ...string) error {
 	if w.before, err = w.snapshot(ctx); err != nil {
 		return err
 	}
-	cmd := NewRootCommand(func() time.Time { return w.today })
+	cmd := cli.NewRootCommand(func() time.Time { return w.today })
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
@@ -495,7 +495,7 @@ func (w *world) readable(text string) string {
 		text = strings.ReplaceAll(text, sha, name)
 	}
 	for sha, name := range w.shas {
-		text = strings.ReplaceAll(text, short(sha), name)
+		text = strings.ReplaceAll(text, sha[:7], name)
 	}
 	return strings.ReplaceAll(text, w.dir, "<repo>")
 }
