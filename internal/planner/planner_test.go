@@ -84,9 +84,13 @@ func TestSharedLibraryReleasesEveryDependent(t *testing.T) {
 	assert.Equal(t, "1.3.0", appA.Next)
 	assert.Equal(t, version.Minor, appA.Bump)
 	assert.Equal(t, "app-a-v1.3.0", appA.Tag)
-	require.Len(t, appA.Entries, 1)
-	assert.Equal(t, []Reason{{Kind: ByDependency, Via: "lib-1", File: "libs/lib-1/retry.go"}}, appA.Entries[0].Reasons)
-	assert.True(t, appA.Entries[0].Inherited())
+	require.Len(t, appA.Releasable, 1)
+	assert.Equal(
+		t,
+		[]Reason{{Kind: ByDependency, Via: "lib-1", File: "libs/lib-1/retry.go"}},
+		appA.Releasable[0].Reasons,
+	)
+	assert.True(t, appA.Releasable[0].Inherited())
 
 	appB := plans["app-b"]
 	assert.Equal(t, "2026.10.0", appB.Next)
@@ -98,7 +102,7 @@ func TestLibraryOnlyReleasesItsDependents(t *testing.T) {
 	plans := build(t, cfg, released, commit("bbb", "fix: off by one", "libs/lib-2/a.go"))
 	assert.Equal(t, "1.2.1", plans["app-a"].Next)
 	assert.False(t, plans["app-b"].Releasing())
-	assert.Empty(t, plans["app-b"].Entries)
+	assert.Empty(t, plans["app-b"].Releasable)
 }
 
 func TestTransitiveDependency(t *testing.T) {
@@ -106,7 +110,7 @@ func TestTransitiveDependency(t *testing.T) {
 	plans := build(t, cfg, released, commit("ccc", "perf: faster", "libs/lib-3/x.go"))
 	assert.Equal(t, "1.2.1", plans["app-a"].Next)
 	assert.Equal(t, "2026.10.0", plans["app-b"].Next)
-	assert.Equal(t, "lib-3", plans["app-b"].Entries[0].Reasons[0].Via)
+	assert.Equal(t, "lib-3", plans["app-b"].Releasable[0].Reasons[0].Via)
 }
 
 func TestAlsoGlobOfDependency(t *testing.T) {
@@ -116,7 +120,7 @@ func TestAlsoGlobOfDependency(t *testing.T) {
 	assert.Equal(
 		t,
 		[]Reason{{Kind: ByAlso, Via: "proto/**", File: "proto/v1/api.proto"}},
-		plans["app-a"].Entries[0].Reasons,
+		plans["app-a"].Releasable[0].Reasons,
 	)
 	assert.False(t, plans["app-b"].Releasing())
 }
@@ -153,8 +157,8 @@ func TestBumpTakesTheLargestChange(t *testing.T) {
 	)
 	assert.Equal(t, version.Major, plans["app-a"].Bump)
 	assert.Equal(t, "2.0.0", plans["app-a"].Next)
-	assert.Len(t, plans["app-a"].Entries, 3)
-	assert.Equal(t, version.Patch, plans["app-a"].Entries[2].Bump, "configured deps bump")
+	assert.Len(t, plans["app-a"].Releasable, 3)
+	assert.Equal(t, version.Patch, plans["app-a"].Releasable[2].Bump, "configured deps bump")
 }
 
 func TestBreakingBelowOneIsMinor(t *testing.T) {
@@ -223,8 +227,8 @@ path = "plugins/plugin"
 	)
 	assert.Equal(t, "1.0.1", plans["root"].Next)
 	assert.Equal(t, "v1.0.1", plans["root"].Tag)
-	require.Len(t, plans["root"].Entries, 1)
-	assert.Equal(t, []Reason{{Kind: ByPath, File: "cmd/main.go"}}, plans["root"].Entries[0].Reasons)
+	require.Len(t, plans["root"].Releasable, 1)
+	assert.Equal(t, []Reason{{Kind: ByPath, File: "cmd/main.go"}}, plans["root"].Releasable[0].Reasons)
 	assert.Equal(t, "1.1.0", plans["plugin"].Next)
 }
 
@@ -236,8 +240,8 @@ func TestReasonsAreReportedOncePerRule(t *testing.T) {
 		{Kind: ByPath, File: "apps/app-a/a.go"},
 		{Kind: ByDependency, Via: "lib-1", File: "libs/lib-1/a.go"},
 		{Kind: ByDependency, Via: "lib-2", File: "libs/lib-2/a.go"},
-	}, plans["app-a"].Entries[0].Reasons)
-	assert.False(t, plans["app-a"].Entries[0].Inherited())
+	}, plans["app-a"].Releasable[0].Reasons)
+	assert.False(t, plans["app-a"].Releasable[0].Inherited())
 }
 
 func TestPlanReleases(t *testing.T) {
@@ -264,8 +268,8 @@ path = "plugins/plugin"
 	plans := build(t, cfg, manifest.Manifest{"root": "0.9.0", "plugin": "0.9.0"},
 		commit("q1", "chore: declare stable\n\nRelease-As: 1.0.0"))
 	assert.Equal(t, "1.0.0", plans["root"].Next)
-	assert.Equal(t, []Reason{{Kind: ByEmptyCommit}}, plans["root"].Entries[0].Reasons)
-	assert.False(t, plans["root"].Entries[0].Inherited())
+	assert.Equal(t, []Reason{{Kind: ByEmptyCommit}}, plans["root"].Releasable[0].Reasons)
+	assert.False(t, plans["root"].Releasable[0].Inherited())
 	assert.False(t, plans["plugin"].Releasing())
 }
 
@@ -281,8 +285,8 @@ path = "plugins/plugin"
 		commit("r1", "chore(plugin): declare stable\n\nRelease-As: 1.0.0"))
 	assert.False(t, plans["root"].Releasing())
 	assert.Equal(t, "1.0.0", plans["plugin"].Next)
-	assert.Equal(t, []Reason{{Kind: ByScope}}, plans["plugin"].Entries[0].Reasons)
-	assert.False(t, plans["plugin"].Entries[0].Inherited())
+	assert.Equal(t, []Reason{{Kind: ByScope}}, plans["plugin"].Releasable[0].Reasons)
+	assert.False(t, plans["plugin"].Releasable[0].Inherited())
 }
 
 func TestUnplacedEmptyCommits(t *testing.T) {

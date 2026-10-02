@@ -36,8 +36,8 @@ func Render(release *planner.PackagePlan, date time.Time) string {
 
 	var breaking []string
 	grouped := map[string][]string{}
-	for i := range release.Entries {
-		entry := &release.Entries[i]
+	for i := range release.Releasable {
+		entry := &release.Releasable[i]
 		if entry.Commit == nil {
 			continue
 		}

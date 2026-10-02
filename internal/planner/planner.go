@@ -66,14 +66,13 @@ func (e *Entry) Inherited() bool {
 
 // PackagePlan is the plan for one released package.
 type PackagePlan struct {
-	Name      string       `json:"name"`
-	Current   string       `json:"current,omitempty"`
-	Next      string       `json:"next,omitempty"`
-	Bump      version.Bump `json:"bump"`
-	Tag       string       `json:"tag,omitempty"`
-	Changelog string       `json:"changelog"`
-	// Entries are the releasable commits, newest first.
-	Entries []Entry `json:"entries,omitempty"`
+	Name       string       `json:"name"`
+	Current    string       `json:"current,omitempty"`
+	Next       string       `json:"next,omitempty"`
+	Bump       version.Bump `json:"bump"`
+	Tag        string       `json:"tag,omitempty"`
+	Changelog  string       `json:"changelog"`
+	Releasable []Entry      `json:"releasable,omitempty"`
 	// Ignored are relevant commits that don't trigger a release, such as docs or non-conventional commits.
 	Ignored []Entry `json:"ignored,omitempty"`
 }
@@ -158,7 +157,7 @@ func planPackage(input *Input, pkg *config.Package) (PackagePlan, error) {
 			plan.Ignored = append(plan.Ignored, entry)
 			continue
 		}
-		plan.Entries = append(plan.Entries, entry)
+		plan.Releasable = append(plan.Releasable, entry)
 		plan.Bump = max(plan.Bump, entry.Bump)
 	}
 	if plan.Bump == version.None {
@@ -176,7 +175,7 @@ func planPackage(input *Input, pkg *config.Package) (PackagePlan, error) {
 func nextVersion(scheme version.Scheme, plan *PackagePlan, now time.Time) (string, error) {
 	var next string
 	var err error
-	switch releaseAs := latestReleaseAs(plan.Entries); {
+	switch releaseAs := latestReleaseAs(plan.Releasable); {
 	case releaseAs != "":
 		next, err = releaseAs, scheme.Validate(releaseAs)
 		if err != nil {
