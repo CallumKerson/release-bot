@@ -3,6 +3,7 @@ package planner
 import (
 	"github.com/CallumKerson/release-bot/internal/config"
 	"github.com/CallumKerson/release-bot/internal/conventional"
+	"github.com/CallumKerson/release-bot/internal/vcs"
 )
 
 // ReasonKind is the rule that made a commit relevant to a package.
@@ -81,7 +82,7 @@ func closure(cfg *config.Config, pkg *config.Package) []*config.Package {
 
 // relevance returns why commit counts toward the first package in pkgs, which is the package's closure.
 // It returns nothing when the commit doesn't affect the package. Each rule is reported once, with its first file.
-func relevance(cfg *config.Config, pkgs []*config.Package, commit *Commit) []Reason {
+func relevance(cfg *config.Config, pkgs []*config.Package, commit *vcs.Commit) []Reason {
 	if len(commit.Files) == 0 {
 		if target, kind := emptyCommitTarget(cfg, commit); target == pkgs[0] {
 			return []Reason{{Kind: kind}}
@@ -123,7 +124,7 @@ func relevance(cfg *config.Config, pkgs []*config.Package, commit *Commit) []Rea
 
 // emptyCommitTarget returns the package a commit that changed no files is for: the package its scope names,
 // or failing that the root package. It returns nil when there is neither.
-func emptyCommitTarget(cfg *config.Config, commit *Commit) (*config.Package, ReasonKind) {
+func emptyCommitTarget(cfg *config.Config, commit *vcs.Commit) (*config.Package, ReasonKind) {
 	if parsed, ok := conventional.Parse(commit.Message); ok {
 		if pkg := cfg.Package(parsed.Scope); pkg != nil {
 			return pkg, ByScope

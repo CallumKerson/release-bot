@@ -10,6 +10,7 @@ import (
 	"github.com/CallumKerson/release-bot/internal/config"
 	"github.com/CallumKerson/release-bot/internal/conventional"
 	"github.com/CallumKerson/release-bot/internal/manifest"
+	"github.com/CallumKerson/release-bot/internal/vcs"
 	"github.com/CallumKerson/release-bot/internal/version"
 )
 
@@ -25,20 +26,12 @@ var defaultBumps = map[string]version.Bump{
 	"revert": version.Patch,
 }
 
-// Commit is a commit as the planner sees it.
-type Commit struct {
-	SHA     string
-	Message string
-	// Files are the paths the commit changed, relative to the repository root.
-	Files []string
-}
-
 // Input is everything the planner needs.
 type Input struct {
 	Config   *config.Config
 	Manifest manifest.Manifest
 	// History holds each released package's commits since its last release, newest first.
-	History map[string][]Commit
+	History map[string][]vcs.Commit
 	Now     time.Time
 }
 
@@ -210,7 +203,7 @@ func latestReleaseAs(entries []Entry) string {
 	return ""
 }
 
-func newEntry(commit *Commit, reasons []Reason, overrides map[string]version.Bump) Entry {
+func newEntry(commit *vcs.Commit, reasons []Reason, overrides map[string]version.Bump) Entry {
 	summary, _, _ := strings.Cut(strings.TrimSpace(commit.Message), "\n")
 	entry := Entry{SHA: commit.SHA, Summary: summary, Reasons: reasons}
 	parsed, ok := conventional.Parse(commit.Message)

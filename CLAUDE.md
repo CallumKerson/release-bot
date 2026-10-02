@@ -31,9 +31,11 @@ A run does one of three things to a local repository: tags merged release commit
 - `internal/manifest` - The versions manifest, a JSON map of released package to version
 - `internal/planner` - Pure: from config, manifest and per-package commit history to a `Plan`, with the reason each commit counts
 - `internal/changelog` - Renders a package release as markdown and prepends it to a changelog
+- `internal/vcs` - The `Commit` type that version control adapters return
 - `internal/git` - The git CLI adapter: history, files at revisions, tags, and writing a branch with plumbing
 - `internal/release` - Orchestration: `Prepare` works out what a run does, `Apply` does it.
   It declares the `Repo` interface it needs
+- `internal/release/releasetest` - An in-memory `release.Repo`, and the contract tests every `release.Repo` must pass
 - `internal/cli` - Cobra commands `plan`, `run` and `version`, and text output
 - `cmd/release-bot` - `main`, which runs `internal/cli`
 
@@ -62,6 +64,8 @@ A run does one of three things to a local repository: tags merged release commit
 ### Testing
 
 - Unit tests use testify/assert and testify/require
+- `internal/release` is unit tested against `releasetest.Fake`.
+  `releasetest.RunContract` runs against both the fake and the git adapter, and any new `release.Repo` should run it too
 - `internal/changelog/testdata` holds golden files; regenerate with `go test ./internal/changelog -update`
 - `features/*.feature` are [godog](https://github.com/cucumber/godog) scenarios run by `features/features_test.go`.
   They are the integration tests and the behaviour spec, written to be read by non-experts; see `features/README.md`.
