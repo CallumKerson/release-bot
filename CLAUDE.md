@@ -30,11 +30,13 @@ A run does one of three things to a local repository: tags merged release commit
 - `internal/config` - Loads and validates `release-bot.toml`; package defaults are applied here
 - `internal/manifest` - The versions manifest, a JSON map of released package to version
 - `internal/planner` - Pure: from config, manifest and per-package commit history to a `Plan`, with the reason each commit counts
+- `internal/changelog` - Renders a package release as markdown and prepends it to a changelog
 - `cmd/release-bot` - Cobra commands
 
 ### Testing
 
 - Unit tests use testify/assert and testify/require
+- `internal/changelog/testdata` holds golden files; regenerate with `go test ./internal/changelog -update`
 
 ## Import Organization
 
