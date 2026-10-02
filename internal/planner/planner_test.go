@@ -9,6 +9,7 @@ import (
 
 	"github.com/CallumKerson/release-bot/internal/config"
 	"github.com/CallumKerson/release-bot/internal/manifest"
+	"github.com/CallumKerson/release-bot/internal/vcs"
 	"github.com/CallumKerson/release-bot/internal/version"
 )
 
@@ -51,15 +52,20 @@ func mustConfig(t *testing.T, toml string) *config.Config {
 }
 
 // sameHistory gives every released package the same commits, as if all were last released at the same commit.
-func sameHistory(cfg *config.Config, commits ...Commit) map[string][]Commit {
-	history := map[string][]Commit{}
+func sameHistory(cfg *config.Config, commits ...vcs.Commit) map[string][]vcs.Commit {
+	history := map[string][]vcs.Commit{}
 	for _, pkg := range cfg.Released() {
 		history[pkg.Name] = commits
 	}
 	return history
 }
 
-func build(t *testing.T, cfg *config.Config, versions manifest.Manifest, commits ...Commit) map[string]*PackagePlan {
+func build(
+	t *testing.T,
+	cfg *config.Config,
+	versions manifest.Manifest,
+	commits ...vcs.Commit,
+) map[string]*PackagePlan {
 	t.Helper()
 	plan, err := Build(&Input{Config: cfg, Manifest: versions, History: sameHistory(cfg, commits...), Now: now})
 	require.NoError(t, err)
@@ -70,8 +76,8 @@ func build(t *testing.T, cfg *config.Config, versions manifest.Manifest, commits
 	return byName
 }
 
-func commit(sha, message string, files ...string) Commit {
-	return Commit{SHA: sha, Message: message, Files: files}
+func commit(sha, message string, files ...string) vcs.Commit {
+	return vcs.Commit{SHA: sha, Message: message, Files: files}
 }
 
 var released = manifest.Manifest{"app-a": "1.2.0", "app-b": "2026.09.3"}

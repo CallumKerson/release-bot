@@ -18,6 +18,7 @@ import (
 	"github.com/CallumKerson/release-bot/internal/config"
 	"github.com/CallumKerson/release-bot/internal/manifest"
 	"github.com/CallumKerson/release-bot/internal/planner"
+	"github.com/CallumKerson/release-bot/internal/vcs"
 )
 
 // ErrNoReleaseCommit is returned when the manifest has a version that no commit in its history set.
@@ -27,7 +28,7 @@ var ErrNoReleaseCommit = errors.New("no commit released this version")
 type Repo interface {
 	Head(ctx context.Context) (string, error)
 	TagCommit(ctx context.Context, tag string) (commit string, ok bool, err error)
-	Log(ctx context.Context, base, head string) ([]planner.Commit, error)
+	Log(ctx context.Context, base, head string) ([]vcs.Commit, error)
 	ReadFile(ctx context.Context, rev, path string) (content []byte, ok bool, err error)
 	FileHistory(ctx context.Context, rev, path string) ([]string, error)
 	CreateTag(ctx context.Context, tag, commit, message string) error
@@ -180,10 +181,10 @@ func readManifest(ctx context.Context, repo Repo, cfg *config.Config, rev string
 
 // collect returns each released package's commits since its base, sharing logs between packages with the same base.
 func collect(ctx context.Context, repo Repo, cfg *config.Config, bases map[string]string, head string) (
-	map[string][]planner.Commit, error,
+	map[string][]vcs.Commit, error,
 ) {
-	logs := map[string][]planner.Commit{}
-	history := map[string][]planner.Commit{}
+	logs := map[string][]vcs.Commit{}
+	history := map[string][]vcs.Commit{}
 	for _, pkg := range cfg.Released() {
 		base := bases[pkg.Name]
 		commits, ok := logs[base]

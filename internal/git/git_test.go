@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/CallumKerson/release-bot/internal/release"
+	"github.com/CallumKerson/release-bot/internal/release/releasetest"
 	"github.com/CallumKerson/release-bot/internal/testing/gitrepo"
 )
 
@@ -16,6 +18,23 @@ func open(t *testing.T, fixture *gitrepo.Repo) *Repo {
 	repo, err := Open(t.Context(), fixture.Dir)
 	require.NoError(t, err)
 	return repo
+}
+
+func TestContract(t *testing.T) {
+	releasetest.RunContract(t, func(t *testing.T, history ...releasetest.Commit) release.Repo {
+		t.Helper()
+		fixture := gitrepo.New(t)
+		for _, commit := range history {
+			for path, content := range commit.Files {
+				fixture.Write(path, content)
+			}
+			fixture.Commit(commit.Message)
+			for _, tag := range commit.Tags {
+				fixture.Git("tag", "--annotate", "--message", tag, tag)
+			}
+		}
+		return open(t, fixture)
+	})
 }
 
 func TestOpenFindsTheRoot(t *testing.T) {

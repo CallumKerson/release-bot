@@ -13,7 +13,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/CallumKerson/release-bot/internal/planner"
+	"github.com/CallumKerson/release-bot/internal/vcs"
 )
 
 const (
@@ -77,7 +77,7 @@ func (r *Repo) TagCommit(ctx context.Context, tag string) (commit string, ok boo
 // Topological order never lists a commit before its children, even when their timestamps tie,
 // and keeps each merged branch's commits together.
 // Renames are listed as a deletion and an addition, so a move between packages counts for both.
-func (r *Repo) Log(ctx context.Context, base, head string) ([]planner.Commit, error) {
+func (r *Repo) Log(ctx context.Context, base, head string) ([]vcs.Commit, error) {
 	revs := head
 	if base != "" {
 		revs = base + ".." + head
@@ -87,7 +87,7 @@ func (r *Repo) Log(ctx context.Context, base, head string) ([]planner.Commit, er
 	if err != nil {
 		return nil, err
 	}
-	var commits []planner.Commit
+	var commits []vcs.Commit
 	for record := range strings.SplitSeq(out, recordSep) {
 		if strings.TrimSpace(record) == "" {
 			continue
@@ -96,7 +96,7 @@ func (r *Repo) Log(ctx context.Context, base, head string) ([]planner.Commit, er
 		if len(fields) != 3 {
 			return nil, fmt.Errorf("%w: %q", errLogOutput, record)
 		}
-		commit := planner.Commit{SHA: fields[0], Message: strings.TrimSpace(fields[1])}
+		commit := vcs.Commit{SHA: fields[0], Message: strings.TrimSpace(fields[1])}
 		for file := range strings.SplitSeq(fields[2], "\n") {
 			if file = strings.TrimSpace(file); file != "" {
 				commit.Files = append(commit.Files, file)
