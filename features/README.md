@@ -1,0 +1,58 @@
+# Features
+
+Each `.feature` file describes how release-bot behaves, as examples written in [Gherkin](https://cucumber.io/docs/gherkin/reference/).
+They are also the integration tests: `go test ./cmd/release-bot` runs every scenario against a real, temporary git repository.
+
+## Reading a scenario
+
+- **Given** steps set up a repository: the release config, today's date and the git history.
+- **When** steps run release-bot, or merge its release branch.
+- **Then** steps say what should have happened.
+
+## The git history
+
+Histories are written like a short `git log`, oldest commit first:
+
+```text
+A  chore: first release
+   changes   apps/app-a/main.go, libs/lib-1/lib.go
+   manifest  app-a 1.2.0
+   tags      app-a-v1.2.0
+
+B  feat(lib-1): add retries
+   changes   libs/lib-1/retry.go
+   footer    BREAKING CHANGE: retries are on by default
+```
+
+Each commit starts with a label, here `A` and `B`, followed by its commit message.
+The indented lines below it describe the commit:
+
+| Keyword    | Meaning                                                                          |
+| ---------- | -------------------------------------------------------------------------------- |
+| `changes`  | Files the commit creates or edits                                                |
+| `deletes`  | Files the commit deletes                                                         |
+| `manifest` | The versions the commit writes to the versions manifest, as `package version`    |
+| `tags`     | Tags on the commit                                                               |
+| `body`     | A line of the commit message body                                                |
+| `footer`   | A footer line at the end of the commit message, such as `Release-As: 2.0.0`     |
+
+The release config is committed with the first commit.
+
+## Commit labels in expectations
+
+Commit hashes change on every run, so wherever release-bot prints or writes a commit hash, the scenario shows its label instead.
+A changelog line `- add retries (B)` means the line ends with the hash of commit `B`.
+
+release-bot's own commits get labels too:
+
+- `release` is the commit release-bot puts on the release branch.
+- `squashed release` is the commit on main made by squash merging the release branch.
+- `merge of <branch>` is the merge commit made by merging a branch with a merge commit.
+
+## Running
+
+```sh
+go test ./cmd/release-bot -run TestFeatures                         # every scenario
+go test ./cmd/release-bot -run 'TestFeatures/A_feature_in_lib-1'     # scenarios whose name starts with this
+go test ./cmd/release-bot -run TestFeatures -v -godog.format=pretty  # print each step as it runs
+```
