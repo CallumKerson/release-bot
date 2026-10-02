@@ -29,6 +29,7 @@ A run does one of three things to a local repository: tags merged release commit
 - `internal/version` - The `Bump` type and versioning schemes: semver and calver
 - `internal/config` - Loads and validates `release-bot.toml`; package defaults are applied here
 - `internal/manifest` - The versions manifest, a JSON map of released package to version
+- `internal/planner` - Pure: from config, manifest and per-package commit history to a `Plan`, with the reason each commit counts
 - `cmd/release-bot` - Cobra commands
 
 ### Testing
