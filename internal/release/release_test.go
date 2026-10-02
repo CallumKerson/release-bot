@@ -12,6 +12,7 @@ import (
 	"github.com/CallumKerson/release-bot/internal/manifest"
 	"github.com/CallumKerson/release-bot/internal/release"
 	"github.com/CallumKerson/release-bot/internal/release/releasetest"
+	"github.com/CallumKerson/release-bot/internal/vcs"
 )
 
 var now = time.Date(2026, time.October, 2, 9, 0, 0, 0, time.UTC)
@@ -88,10 +89,52 @@ func TestPrepareFindsMergedReleasesToTag(t *testing.T) {
 
 	result := prepare(t, repo)
 	assert.Equal(t, []release.Tag{
-		{Package: "app", Version: "1.1.0", Name: "app-v1.1.0", ReleaseCommit: log[1].SHA},
+		{Package: "app", Version: "1.1.0", Name: "app-v1.1.0", ReleaseCommit: log[1].SHA, Notes: "Release 1.1.0."},
 	}, result.Untagged)
 	require.Len(t, result.Plan.Packages, 1)
 	assert.Equal(t, "1.1.1", result.Plan.Packages[0].Next, "only commits since the merged release count")
+}
+
+func TestPrepareTakesReleaseNotesFromTheChangelog(t *testing.T) {
+	tagged := released(t, "chore: release app 1.0.0", manifest.Manifest{"app": "1.0.0"}, "app-v1.0.0")
+	tagged.Files["app/CHANGELOG.md"] = "# Changelog\n\n## 1.0.0 (2026-09-01)\n\n### Features\n\n- first (aaa)\n"
+	untagged := released(t, "chore(release): app 1.1.0", manifest.Manifest{"app": "1.1.0"})
+	untagged.Files["app/CHANGELOG.md"] = "# Changelog\n\n## 1.1.0 (2026-10-01)\n\n### Bug Fixes\n\n- second (bbb)\n\n" +
+		"## 1.0.0 (2026-09-01)\n\n### Features\n\n- first (aaa)\n"
+	repo := releasetest.NewFake(tagged, untagged)
+
+	result := prepare(t, repo)
+	require.Len(t, result.Untagged, 1)
+	assert.Equal(t, "### Bug Fixes\n\n- second (bbb)", result.Untagged[0].Notes)
+	assert.Empty(t, result.Tagged, "the tagged release is no longer current")
+}
+
+func TestPrepareListsCurrentReleasesThatAreTagged(t *testing.T) {
+	repo := releasetest.NewFake(
+		released(t, "chore: release app 1.0.0", manifest.Manifest{"app": "1.0.0"}, "app-v1.0.0"),
+	)
+	head, err := repo.Head(t.Context())
+	require.NoError(t, err)
+
+	result := prepare(t, repo)
+	assert.Equal(t, []release.Tag{
+		{Package: "app", Version: "1.0.0", Name: "app-v1.0.0", ReleaseCommit: head, Notes: "Release 1.0.0."},
+	}, result.Tagged)
+	assert.True(t, result.Nothing(), "tagged releases need nothing doing locally")
+}
+
+func TestPrepareDescribesTheReleaseForAPullRequest(t *testing.T) {
+	repo := releasetest.NewFake(
+		released(t, "chore: release app 1.0.0", manifest.Manifest{"app": "1.0.0"}, "app-v1.0.0"),
+		change("feat: add a thing", "app/main.go"),
+	)
+	head, err := repo.Head(t.Context())
+	require.NoError(t, err)
+
+	result := prepare(t, repo)
+	require.NotNil(t, result.Branch)
+	assert.Equal(t, "chore(release): app 1.1.0", result.Branch.Title)
+	assert.Equal(t, "## app 1.1.0\n\n### Features\n\n- add a thing ("+vcs.Short(head)+")\n", result.Branch.Body)
 }
 
 func TestApplyTagsAndWritesTheBranch(t *testing.T) {
@@ -123,13 +166,17 @@ func TestBranchJSONListsPathsNotContents(t *testing.T) {
 	branch := &release.Branch{
 		Name:    "release-bot/release",
 		Message: "chore(release): app 1.0.0",
+		Title:   "chore(release): app 1.0.0",
+		Body:    "## app 1.0.0",
 		Files:   map[string][]byte{"b/CHANGELOG.md": []byte("b"), "a.json": []byte("a")},
 	}
 	data, err := json.Marshal(branch)
 	require.NoError(t, err)
-	assert.JSONEq(
-		t,
-		`{"name": "release-bot/release", "message": "chore(release): app 1.0.0", "files": ["a.json", "b/CHANGELOG.md"]}`,
-		string(data),
-	)
+	assert.JSONEq(t, `{
+		"name": "release-bot/release",
+		"message": "chore(release): app 1.0.0",
+		"title": "chore(release): app 1.0.0",
+		"body": "## app 1.0.0",
+		"files": ["a.json", "b/CHANGELOG.md"]
+	}`, string(data))
 }

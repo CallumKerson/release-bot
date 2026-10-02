@@ -40,18 +40,23 @@ type Repo interface {
 	) (commit string, changed bool, err error)
 }
 
-// Tag is a release that has been merged but not yet tagged.
+// Tag is a package's current release and the tag that marks it.
 type Tag struct {
 	Package       string `json:"package"`
 	Version       string `json:"version"`
 	Name          string `json:"name"`
 	ReleaseCommit string `json:"release_commit"`
+	// Notes are the release's section of the package changelog, as of the release commit.
+	Notes string `json:"notes"`
 }
 
 // Branch is the content of the release branch.
 type Branch struct {
 	Name    string
 	Message string
+	// Title and Body describe the release in a pull request: the message's summary, and every package's notes.
+	Title string
+	Body  string
 	// Files are the new contents of the changed files, keyed by repository path.
 	Files map[string][]byte
 }
@@ -66,15 +71,20 @@ func (b *Branch) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Name    string   `json:"name"`
 		Message string   `json:"message"`
+		Title   string   `json:"title"`
+		Body    string   `json:"body"`
 		Files   []string `json:"files"`
-	}{b.Name, b.Message, b.Paths()})
+	}{b.Name, b.Message, b.Title, b.Body, b.Paths()})
 }
 
 // Result is what a run will do.
 type Result struct {
-	Head     string       `json:"head"`
-	Untagged []Tag        `json:"untagged,omitempty"`
-	Plan     planner.Plan `json:"plan"`
+	Head string `json:"head"`
+	// Untagged are the current releases that have been merged but not yet tagged, which the run tags.
+	Untagged []Tag `json:"untagged,omitempty"`
+	// Tagged are the current releases that are already tagged.
+	Tagged []Tag        `json:"tagged,omitempty"`
+	Plan   planner.Plan `json:"plan"`
 	// Branch is nil when nothing is ready to release.
 	Branch *Branch `json:"branch,omitempty"`
 }
@@ -117,6 +127,8 @@ func Prepare(ctx context.Context, repo Repo, cfg *config.Config, now time.Time) 
 		}
 		if tagged {
 			bases[pkg.Name] = commit
+			tag.ReleaseCommit = commit
+			result.Tagged = append(result.Tagged, tag)
 		} else {
 			untagged = append(untagged, tag)
 		}
@@ -126,6 +138,13 @@ func Prepare(ctx context.Context, repo Repo, cfg *config.Config, now time.Time) 
 	}
 	for _, tag := range result.Untagged {
 		bases[tag.Package] = tag.ReleaseCommit
+	}
+	for _, tags := range [][]Tag{result.Tagged, result.Untagged} {
+		for i := range tags {
+			if tags[i].Notes, err = releaseNotes(ctx, repo, cfg, &tags[i]); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	history, err := collect(ctx, repo, cfg, bases, head)
@@ -211,16 +230,19 @@ func buildBranch(ctx context.Context, repo Repo, cfg *config.Config, head string
 
 	files := map[string][]byte{}
 	versions := map[string]string{}
-	var summary, body []string
+	var summary, body, notes []string
 	for _, rel := range releases {
 		existing, _, err := repo.ReadFile(ctx, head, rel.Changelog)
 		if err != nil {
 			return nil, err
 		}
-		files[rel.Changelog] = []byte(changelog.Prepend(string(existing), changelog.Render(rel, now)))
+		rendered := changelog.Render(rel, now)
+		files[rel.Changelog] = []byte(changelog.Prepend(string(existing), rendered))
 		versions[rel.Name] = rel.Next
 		summary = append(summary, rel.Name+" "+rel.Next)
 		body = append(body, fmt.Sprintf("- %s %s -> %s", rel.Name, rel.CurrentOrUnreleased(), rel.Next))
+		section, found := changelog.Section(rendered, rel.Next)
+		notes = append(notes, fmt.Sprintf("## %s %s\n\n%s\n", rel.Name, rel.Next, notesOr(section, found, rel.Next)))
 	}
 	data, err := current.With(versions).Marshal()
 	if err != nil {
@@ -228,11 +250,32 @@ func buildBranch(ctx context.Context, repo Repo, cfg *config.Config, head string
 	}
 	files[cfg.Manifest] = data
 
+	title := "chore(release): " + strings.Join(summary, ", ")
 	return &Branch{
 		Name:    cfg.Branch,
-		Message: "chore(release): " + strings.Join(summary, ", ") + "\n\n" + strings.Join(body, "\n") + "\n",
+		Message: title + "\n\n" + strings.Join(body, "\n") + "\n",
+		Title:   title,
+		Body:    strings.Join(notes, "\n"),
 		Files:   files,
 	}, nil
+}
+
+// releaseNotes returns the notes of a release from its package's changelog at the release commit.
+func releaseNotes(ctx context.Context, repo Repo, cfg *config.Config, tag *Tag) (string, error) {
+	content, _, err := repo.ReadFile(ctx, tag.ReleaseCommit, cfg.Package(tag.Package).Changelog)
+	if err != nil {
+		return "", err
+	}
+	section, found := changelog.Section(string(content), tag.Version)
+	return notesOr(section, found, tag.Version), nil
+}
+
+// notesOr returns section, or a placeholder when the changelog has no notes for version.
+func notesOr(section string, found bool, version string) string {
+	if !found || section == "" {
+		return "Release " + version + "."
+	}
+	return section
 }
 
 // releaseCommits finds the commit that released each untagged version: the newest commit that set it in the manifest.
