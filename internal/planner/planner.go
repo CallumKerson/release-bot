@@ -57,7 +57,7 @@ type Entry struct {
 // Inherited reports whether the entry only counts because of a dependency or an also glob.
 func (e *Entry) Inherited() bool {
 	for _, reason := range e.Reasons {
-		if reason.Kind == ByPath || reason.Kind == ByEmptyCommit {
+		if reason.Kind == ByPath || reason.Kind == ByEmptyCommit || reason.Kind == ByScope {
 			return false
 		}
 	}
@@ -86,6 +86,8 @@ func (p *PackagePlan) Releasing() bool {
 // Plan is the planner's decision for every released package, sorted by name.
 type Plan struct {
 	Packages []PackagePlan `json:"packages"`
+	// Unplaced are empty commits that count toward no released package.
+	Unplaced []Entry `json:"unplaced,omitempty"`
 }
 
 // Releases returns the packages that get a new version.
@@ -100,16 +102,36 @@ func (p *Plan) Releases() []*PackagePlan {
 }
 
 // Build plans the next release of every released package.
-func Build(in *Input) (Plan, error) {
+func Build(input *Input) (Plan, error) {
 	var plan Plan
-	for _, pkg := range in.Config.Released() {
-		pkgPlan, err := planPackage(in, pkg)
+	for _, pkg := range input.Config.Released() {
+		pkgPlan, err := planPackage(input, pkg)
 		if err != nil {
 			return Plan{}, fmt.Errorf("planning %s: %w", pkg.Name, err)
 		}
 		plan.Packages = append(plan.Packages, pkgPlan)
 	}
+	plan.Unplaced = unplaced(input)
 	return plan, nil
+}
+
+// unplaced returns the empty commits in any package's history that are for no released package.
+func unplaced(input *Input) []Entry {
+	seen := map[string]bool{}
+	var entries []Entry
+	for _, pkg := range input.Config.Released() {
+		for i := range input.History[pkg.Name] {
+			commit := &input.History[pkg.Name][i]
+			if len(commit.Files) > 0 || seen[commit.SHA] {
+				continue
+			}
+			seen[commit.SHA] = true
+			if target, _ := emptyCommitTarget(input.Config, commit); target == nil || !target.Release {
+				entries = append(entries, newEntry(commit, nil, input.Config.Bumps))
+			}
+		}
+	}
+	return entries
 }
 
 func planPackage(input *Input, pkg *config.Package) (PackagePlan, error) {
