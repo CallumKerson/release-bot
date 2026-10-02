@@ -29,6 +29,15 @@ func printPlan(out io.Writer, result *release.Result) {
 		printPackage(out, &result.Plan.Packages[i])
 	}
 
+	if len(result.Plan.Unplaced) > 0 {
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "Empty commits that count toward no package, as their scope doesn't name a released package:")
+		for i := range result.Plan.Unplaced {
+			entry := &result.Plan.Unplaced[i]
+			fmt.Fprintf(out, "  ! %s (%s)\n", entry.Summary, short(entry.SHA))
+		}
+	}
+
 	fmt.Fprintln(out)
 	if result.Branch == nil {
 		fmt.Fprintln(out, "Nothing to release.")
@@ -105,6 +114,8 @@ func explain(pkg string, reason planner.Reason) string {
 		return fmt.Sprintf("%s is in %s", reason.File, pkg)
 	case planner.ByEmptyCommit:
 		return "an empty commit counts for the whole repository"
+	case planner.ByScope:
+		return "an empty commit counts for the package its scope names"
 	default:
 		return reason.File
 	}

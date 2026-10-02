@@ -268,3 +268,36 @@ path = "plugins/plugin"
 	assert.False(t, plans["root"].Entries[0].Inherited())
 	assert.False(t, plans["plugin"].Releasing())
 }
+
+func TestEmptyCommitsCountForThePackageTheirScopeNames(t *testing.T) {
+	cfg := mustConfig(t, `
+[packages.root]
+path = "."
+
+[packages.plugin]
+path = "plugins/plugin"
+`)
+	plans := build(t, cfg, manifest.Manifest{"root": "0.9.0", "plugin": "0.9.0"},
+		commit("r1", "chore(plugin): declare stable\n\nRelease-As: 1.0.0"))
+	assert.False(t, plans["root"].Releasing())
+	assert.Equal(t, "1.0.0", plans["plugin"].Next)
+	assert.Equal(t, []Reason{{Kind: ByScope}}, plans["plugin"].Entries[0].Reasons)
+	assert.False(t, plans["plugin"].Entries[0].Inherited())
+}
+
+func TestUnplacedEmptyCommits(t *testing.T) {
+	cfg := mustConfig(t, monorepo)
+	plan, err := Build(&Input{
+		Config: cfg, Manifest: released, Now: now,
+		History: sameHistory(cfg,
+			commit("s3", "chore(app-a): release 2.0.0\n\nRelease-As: 2.0.0"),
+			commit("s2", "chore(lib-1): not released itself\n\nRelease-As: 2.0.0"),
+			commit("s1", "chore: release 2.0.0\n\nRelease-As: 2.0.0"),
+		),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "2.0.0", plan.Packages[0].Next)
+	require.Len(t, plan.Unplaced, 2)
+	assert.Equal(t, "s2", plan.Unplaced[0].SHA)
+	assert.Equal(t, "s1", plan.Unplaced[1].SHA)
+}

@@ -2,6 +2,7 @@ package planner
 
 import (
 	"github.com/CallumKerson/release-bot/internal/config"
+	"github.com/CallumKerson/release-bot/internal/conventional"
 )
 
 // ReasonKind is the rule that made a commit relevant to a package.
@@ -14,9 +15,12 @@ const (
 	ByDependency ReasonKind = "depends-on"
 	// ByAlso means the commit changed a file matching one of the also globs of the package or its dependencies.
 	ByAlso ReasonKind = "also"
-	// ByEmptyCommit means the commit changed no files, so it is about the whole repository and counts for the root package.
+	// ByEmptyCommit means the commit changed no files and its scope names no package,
+	// so it is about the whole repository and counts for the root package.
 	// This is how a Release-As footer is usually added: git commit --allow-empty.
 	ByEmptyCommit ReasonKind = "empty"
+	// ByScope means the commit changed no files and its scope is the package's name.
+	ByScope ReasonKind = "scope"
 )
 
 // Reason explains why a commit counts toward a package.
@@ -24,7 +28,7 @@ type Reason struct {
 	Kind ReasonKind `json:"kind"`
 	// Via is the dependency for ByDependency, or the glob for ByAlso.
 	Via string `json:"via,omitempty"`
-	// File is the first changed file that matched. It is empty for ByEmptyCommit.
+	// File is the first changed file that matched. It is empty for ByEmptyCommit and ByScope.
 	File string `json:"file,omitempty"`
 }
 
@@ -79,8 +83,8 @@ func closure(cfg *config.Config, pkg *config.Package) []*config.Package {
 // It returns nothing when the commit doesn't affect the package. Each rule is reported once, with its first file.
 func relevance(cfg *config.Config, pkgs []*config.Package, commit *Commit) []Reason {
 	if len(commit.Files) == 0 {
-		if pkgs[0].Path == "." {
-			return []Reason{{Kind: ByEmptyCommit}}
+		if target, kind := emptyCommitTarget(cfg, commit); target == pkgs[0] {
+			return []Reason{{Kind: kind}}
 		}
 		return nil
 	}
@@ -115,4 +119,20 @@ func relevance(cfg *config.Config, pkgs []*config.Package, commit *Commit) []Rea
 		}
 	}
 	return reasons
+}
+
+// emptyCommitTarget returns the package a commit that changed no files is for: the package its scope names,
+// or failing that the root package. It returns nil when there is neither.
+func emptyCommitTarget(cfg *config.Config, commit *Commit) (*config.Package, ReasonKind) {
+	if parsed, ok := conventional.Parse(commit.Message); ok {
+		if pkg := cfg.Package(parsed.Scope); pkg != nil {
+			return pkg, ByScope
+		}
+	}
+	for i := range cfg.Packages {
+		if cfg.Packages[i].Path == "." {
+			return &cfg.Packages[i], ByEmptyCommit
+		}
+	}
+	return nil, ""
 }

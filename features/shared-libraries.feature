@@ -244,3 +244,32 @@ Feature: Releasing apps that share libraries
         apps/app-b/CHANGELOG.md
       """
     And nothing in the repository changes
+
+  Scenario: An empty commit releases the app its scope names
+    Given the git history continues:
+      """
+      B  chore(app-a): release 2.0.0
+         footer  Release-As: 2.0.0
+      """
+    When release-bot runs
+    Then the release branch releases:
+      | package | from  | to    |
+      | app-a   | 1.2.0 | 2.0.0 |
+
+  Scenario: The plan points out an empty commit that names no app
+    Given the git history continues:
+      """
+      B  chore: release 2.0.0
+         footer  Release-As: 2.0.0
+      """
+    When release-bot plans
+    Then release-bot says:
+      """
+      app-a: 1.2.0, nothing to release
+      app-b: 2026.09.0, nothing to release
+
+      Empty commits that count toward no package, as their scope doesn't name a released package:
+        ! chore: release 2.0.0 (B)
+
+      Nothing to release.
+      """

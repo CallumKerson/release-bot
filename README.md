@@ -73,7 +73,9 @@ exclude = ["libs/lib-2/docs/**"]           # files inside it that don't
 
 Each file belongs to the package with the longest path containing it.
 A commit counts toward a package when it changes a file that package owns, a file owned by one of its dependencies, or a file matching its or its dependencies' `also` globs.
-An empty commit counts toward the root package, so `git commit --allow-empty -m "chore: release 2.0.0" -m "Release-As: 2.0.0"` works as it does with release-please.
+An empty commit counts toward the package its scope names, so `git commit --allow-empty -m "chore(app-a): release 2.0.0" -m "Release-As: 2.0.0"` releases `app-a` 2.0.0.
+Without a scope that names a package, it counts toward the root package, as it does with release-please.
+`plan` points out empty commits that count toward no released package.
 
 The manifest maps each released package to its current version, `{"app-a": "1.2.0", "app-b": "2026.09.0"}`.
 release-bot writes it; for an existing repository, start it with the current versions and tag that commit.
