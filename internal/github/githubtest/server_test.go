@@ -1,7 +1,6 @@
 package githubtest_test
 
 import (
-	"fmt"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -316,31 +315,16 @@ func TestRecordsRequests(t *testing.T) {
 		hub.server.Writes())
 }
 
-// strict records the errors a fake reports when the test ends, instead of failing the test.
-type strict struct {
-	testing.TB
-
-	cleanups []func()
-	errors   []string
-}
-
-func (s *strict) Cleanup(cleanup func()) { s.cleanups = append(s.cleanups, cleanup) }
-
-func (s *strict) Errorf(format string, args ...any) {
-	s.errors = append(s.errors, fmt.Sprintf(format, args...))
-}
-
-func TestFailsTheTestOnRequestsItDoesNotServe(t *testing.T) {
-	recorder := &strict{TB: t}
-	server := githubtest.New(recorder, githubtest.Options{Repository: owner + "/" + name, Origin: t.TempDir()})
+func TestCloseFailsOnRequestsItDoesNotServe(t *testing.T) {
+	server, err := githubtest.Start(githubtest.Options{Repository: owner + "/" + name, Origin: t.TempDir()})
+	require.NoError(t, err)
 	client := newClient(t, server, githubtest.Token)
 
-	_, _, err := client.Issues.Get(t.Context(), owner, name, 1)
+	_, _, err = client.Issues.Get(t.Context(), owner, name, 1)
 	assert.Equal(t, http.StatusNotImplemented, status(t, err))
 	assert.Equal(t, []string{"GET /repos/octo-org/widgets/issues/1"}, server.Unexpected())
 
-	for _, cleanup := range recorder.cleanups {
-		cleanup()
-	}
-	assert.Equal(t, []string{"githubtest: unexpected request GET /repos/octo-org/widgets/issues/1"}, recorder.errors)
+	err = server.Close()
+	require.ErrorIs(t, err, githubtest.ErrUnexpected)
+	assert.ErrorContains(t, err, "GET /repos/octo-org/widgets/issues/1")
 }

@@ -11,6 +11,7 @@ package githubtest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -26,6 +27,9 @@ import (
 
 // Token is the only token the fake accepts.
 const Token = "githubtest-token"
+
+// ErrUnexpected is returned by Close when the fake was asked for something it doesn't serve.
+var ErrUnexpected = errors.New("githubtest: unexpected use")
 
 const (
 	// defaultPageSize is GitHub's page size when a request doesn't ask for one.
@@ -67,6 +71,7 @@ type Server struct {
 	owner, name string
 	origin      string
 	maxPage     int
+	server      *httptest.Server
 
 	mu         sync.Mutex
 	pulls      []*github.PullRequest
@@ -79,9 +84,23 @@ type Server struct {
 // New starts a fake GitHub, stopped when the test ends. The test fails if a request was one the fake doesn't serve.
 func New(test testing.TB, opts Options) *Server {
 	test.Helper()
+	fake, err := Start(opts)
+	if err != nil {
+		test.Fatal(err)
+	}
+	test.Cleanup(func() {
+		if err := fake.Close(); err != nil {
+			test.Error(err)
+		}
+	})
+	return fake
+}
+
+// Start starts a fake GitHub. Close stops it.
+func Start(opts Options) (*Server, error) {
 	owner, name, ok := strings.Cut(opts.Repository, "/")
 	if !ok {
-		test.Fatalf("githubtest: repository %q isn't owner/name", opts.Repository)
+		return nil, fmt.Errorf("%w: repository %q isn't owner/name", ErrUnexpected, opts.Repository)
 	}
 	fake := &Server{owner: owner, name: name, origin: opts.Origin, maxPage: opts.MaxPageSize}
 
@@ -95,15 +114,30 @@ func New(test testing.TB, opts Options) *Server {
 	mux.HandleFunc("POST "+repo+"/releases", fake.createRelease)
 	mux.HandleFunc("/", fake.notImplemented)
 
-	server := httptest.NewServer(fake.authenticate(mux))
-	fake.URL = server.URL + "/"
-	test.Cleanup(func() {
-		server.Close()
-		for _, request := range fake.Unexpected() {
-			test.Errorf("githubtest: unexpected request %s", request)
-		}
+	fake.server = httptest.NewServer(fake.authenticate(mux))
+	fake.URL = fake.server.URL + "/"
+	return fake, nil
+}
+
+// Close stops the fake, and returns an error listing any requests it doesn't serve.
+func (s *Server) Close() error {
+	s.server.Close()
+	if unexpected := s.Unexpected(); len(unexpected) > 0 {
+		return fmt.Errorf("%w: %s", ErrUnexpected, strings.Join(unexpected, ", "))
+	}
+	return nil
+}
+
+// PublishRelease publishes a release of an existing tag, as someone using GitHub's website would.
+func (s *Server) PublishRelease(tag, notes string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.nextID++
+	now := github.Timestamp{Time: time.Now().UTC()}
+	s.releases = append(s.releases, &github.RepositoryRelease{
+		ID: s.nextID, TagName: tag, Name: new(tag), Body: new(notes), CreatedAt: now, PublishedAt: &now,
+		HTMLURL: s.htmlURL() + "/releases/tag/" + tag,
 	})
-	return fake
 }
 
 // Requests returns the requests received so far, oldest first.
