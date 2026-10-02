@@ -1,0 +1,46 @@
+[tools]
+"github:golangci/golangci-lint" = "v2.14.0"
+go = "1.27.1"
+hk = "2.4.0"
+typos = "1.50.3"
+rumdl = "0.2.77"
+oxfmt = { depends = "aube", "version" = "0.71.0" }
+aube = "2.3.0"
+
+[task_config]
+includes = ["tasks"]
+
+[tasks.check]
+run = "hk check --no-fail-fast"
+
+[tasks.check-pr]
+run = "hk check --from-ref origin/main --to-ref HEAD --no-fail-fast"
+
+[tasks.check-all]
+run = "hk check --all --no-fail-fast"
+
+[tasks.fix]
+run = "hk fix --no-fail-fast"
+
+[tasks.fix-pr]
+run = "hk fix --from-ref origin/main --to-ref HEAD --no-fail-fast"
+
+[tasks.fix-all]
+run = "hk fix --all --no-fail-fast"
+
+[tasks.test]
+description = "Runs all tests"
+depends = ["*:test"]
+
+[tasks.ci]
+description = "Runs all CI checks - lint and test"
+depends = ["check-auto", "test"]
+
+[settings]
+# deps is experimental
+experimental = true
+
+# Downloads Go modules before `mise run` whenever go.mod or go.sum change, so
+# parallel tasks such as golangci-lint and go test never race to fetch them
+[deps.go]
+auto = true

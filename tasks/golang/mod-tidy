@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE sources=["go.mod", "go.sum"]
+#MISE outputs={auto = true}
+
+set -euxo pipefail
+
+go mod tidy

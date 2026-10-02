@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE depends=["golang:mod-tidy-check"]
+# Golden files are read by tests, so a change to any of them has to re-run the tests too
+#MISE sources=["go.mod", "go.sum", "**/*.go", "**/testdata/**"]
+#MISE outputs={auto = true}
+
+set -euxo pipefail
+
+go test ./...
