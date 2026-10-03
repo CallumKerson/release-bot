@@ -65,7 +65,15 @@ func printPackage(out io.Writer, pkg *planner.PackagePlan) {
 }
 
 // printRun summarises what a run did, or for a dry run with no outcome, would do.
-func printRun(out io.Writer, result *release.Result, outcome *release.Outcome) {
+func printRun(out io.Writer, run *runOutput) {
+	printApplied(out, run.Result, run.Outcome)
+	if run.github {
+		printPublished(out, run.Result, run.Published)
+	}
+}
+
+// printApplied summarises what a run did to the local repository, or would do.
+func printApplied(out io.Writer, result *release.Result, outcome *release.Outcome) {
 	if result.Nothing() {
 		fmt.Fprintln(out, "Nothing to release.")
 		return
@@ -93,6 +101,38 @@ func printRun(out io.Writer, result *release.Result, outcome *release.Outcome) {
 		fmt.Fprintf(out, "Updated %s on %s: %s\n", result.Branch.Name, vcs.Short(outcome.BranchCommit), summary)
 	default:
 		fmt.Fprintf(out, "%s is already up to date: %s\n", result.Branch.Name, summary)
+	}
+}
+
+// printPublished summarises what a run did on GitHub, or for a dry run with nothing published, would do.
+// Releases that were already published go unmentioned.
+func printPublished(out io.Writer, result *release.Result, published *release.Published) {
+	if published == nil {
+		for _, tag := range result.Untagged {
+			fmt.Fprintf(out, "Would publish release %s\n", tag.Name)
+		}
+		if result.Branch != nil {
+			fmt.Fprintf(out, "Would push %s and open or update its pull request\n", result.Branch.Name)
+		}
+		return
+	}
+	for _, rel := range published.Releases {
+		if rel.Created {
+			fmt.Fprintf(out, "Published release %s: %s\n", rel.Tag, rel.URL)
+		}
+	}
+	if published.BranchPushed {
+		fmt.Fprintf(out, "Pushed %s\n", result.Branch.Name)
+	}
+	if pull := published.PullRequest; pull != nil {
+		switch pull.Action {
+		case release.PullRequestOpened:
+			fmt.Fprintf(out, "Opened pull request #%d: %s\n", pull.Number, pull.URL)
+		case release.PullRequestUpdated:
+			fmt.Fprintf(out, "Updated pull request #%d: %s\n", pull.Number, pull.URL)
+		case release.PullRequestUnchanged:
+			fmt.Fprintf(out, "Pull request #%d is already up to date: %s\n", pull.Number, pull.URL)
+		}
 	}
 }
 

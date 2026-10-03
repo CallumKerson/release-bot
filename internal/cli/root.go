@@ -7,9 +7,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewRootCommand builds the cobra command tree. now is the clock used for release dates and calendar versions.
-func NewRootCommand(now func() time.Time) *cobra.Command {
-	opts := &options{now: now}
+// NewRootCommand builds the cobra command tree. now is the clock used for release dates and calendar versions,
+// and getenv looks up environment variables, such as the GitHub token.
+func NewRootCommand(now func() time.Time, getenv func(string) string) *cobra.Command {
+	opts := &options{now: now, getenv: getenv}
 	rootCmd := &cobra.Command{
 		Use:          "release-bot",
 		Short:        "releases packages from conventional commits",

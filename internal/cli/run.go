@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/CallumKerson/release-bot/internal/config"
 	"github.com/CallumKerson/release-bot/internal/git"
+	"github.com/CallumKerson/release-bot/internal/github"
 	"github.com/CallumKerson/release-bot/internal/release"
 )
 
@@ -20,6 +22,15 @@ type options struct {
 	config string
 	json   bool
 	now    func() time.Time
+	getenv func(string) string
+}
+
+// githubOptions are run's flags for releasing on GitHub.
+type githubOptions struct {
+	enabled    bool
+	remote     string
+	repository string
+	apiURL     string
 }
 
 func newPlanCommand(opts *options) *cobra.Command {
@@ -39,6 +50,7 @@ func newPlanCommand(opts *options) *cobra.Command {
 
 func newRunCommand(opts *options) *cobra.Command {
 	var dryRun bool
+	var githubOpts githubOptions
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Tag merged releases, or rebuild the release branch when there are releasable commits",
@@ -48,26 +60,68 @@ func newRunCommand(opts *options) *cobra.Command {
   - rebuilds the release branch from HEAD, when there are releasable commits since the last release,
   - or nothing, when there are no releasable commits.
 
-It never changes the working tree, the index or the checked out branch.`,
+It never changes the working tree, the index or the checked out branch.
+
+With --github, it then pushes the tags and the release branch, publishes a GitHub release of each
+current version that doesn't have one, and opens or updates the release pull request.
+It reads the token from GITHUB_TOKEN, and the repository and API URL from GITHUB_REPOSITORY and
+GITHUB_API_URL unless the flags set them, as they are in GitHub Actions.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			repo, result, err := prepare(cmd.Context(), opts)
 			if err != nil {
 				return err
 			}
-			var outcome *release.Outcome
-			if !dryRun {
-				if outcome, err = release.Apply(cmd.Context(), repo, result); err != nil {
+			var host release.Host
+			if githubOpts.enabled {
+				if host, err = newGitHub(opts, &githubOpts); err != nil {
 					return err
 				}
 			}
-			return output(cmd.OutOrStdout(), opts, runOutput{result, outcome}, func(out io.Writer) {
-				printRun(out, result, outcome)
-			})
+			run := &runOutput{Result: result, github: githubOpts.enabled}
+			if !dryRun {
+				if run.Outcome, err = release.Apply(cmd.Context(), repo, result); err != nil {
+					return err
+				}
+			}
+			if !dryRun && host != nil {
+				run.Published, err = release.Publish(
+					cmd.Context(),
+					repo.Remote(githubOpts.remote),
+					host,
+					result,
+					run.Outcome,
+				)
+				if err != nil {
+					return fmt.Errorf("publishing to GitHub: %w", err)
+				}
+			}
+			return output(cmd.OutOrStdout(), opts, run, func(out io.Writer) { printRun(out, run) })
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print what would be done without doing it")
+	cmd.Flags().
+		BoolVar(&githubOpts.enabled, "github", false, "push, and publish the release pull request and releases on GitHub")
+	cmd.Flags().
+		StringVar(&githubOpts.remote, "remote", "origin", "the git remote of the GitHub repository, for --github")
+	cmd.Flags().StringVar(&githubOpts.repository, "github-repo", "",
+		"the GitHub repository as owner/name, for --github (default $GITHUB_REPOSITORY)")
+	cmd.Flags().StringVar(&githubOpts.apiURL, "github-api-url", "",
+		"the GitHub REST API URL, for --github (default $GITHUB_API_URL, or https://api.github.com)")
 	return cmd
+}
+
+// newGitHub returns the GitHub repository to publish to, failing before anything is written when it can't.
+func newGitHub(opts *options, githubOpts *githubOptions) (*github.Host, error) {
+	repository := cmp.Or(githubOpts.repository, opts.getenv("GITHUB_REPOSITORY"))
+	if repository == "" {
+		return nil, fmt.Errorf("%w: no repository, set GITHUB_REPOSITORY or --github-repo", github.ErrSettings)
+	}
+	return github.New(github.Options{
+		Token:      opts.getenv("GITHUB_TOKEN"),
+		Repository: repository,
+		APIURL:     cmp.Or(githubOpts.apiURL, opts.getenv("GITHUB_API_URL")),
+	})
 }
 
 func prepare(ctx context.Context, opts *options) (*git.Repo, *release.Result, error) {
@@ -87,10 +141,13 @@ func prepare(ctx context.Context, opts *options) (*git.Repo, *release.Result, er
 	return repo, result, err
 }
 
-// runOutput is what run prints as JSON. Outcome is nil for a dry run.
+// runOutput is what run prints as JSON. Outcome and Published are nil for a dry run.
 type runOutput struct {
-	Result  *release.Result  `json:"result"`
-	Outcome *release.Outcome `json:"outcome,omitempty"`
+	Result    *release.Result    `json:"result"`
+	Outcome   *release.Outcome   `json:"outcome,omitempty"`
+	Published *release.Published `json:"published,omitempty"`
+	// github is whether the run publishes to GitHub.
+	github bool
 }
 
 // output prints value as JSON with --json, and otherwise prints text.
