@@ -32,3 +32,6 @@ dist/
 *.local*
 
 .serena/
+
+# JUnit reports written on CI
+test-results/

@@ -7,4 +7,4 @@ set -euo pipefail
 export RELEASE_BOT_E2E_REPOSITORY="${RELEASE_BOT_E2E_REPOSITORY:-CallumKerson/release-bot-test-repo}"
 
 # fnox reads the GitHub App's client ID and private key from 1Password
-fnox exec -- go test ./features -run TestEndToEnd -count=1 "$@"
+fnox exec -- go test -tags e2e ./features -run TestEndToEnd -count=1 "$@"

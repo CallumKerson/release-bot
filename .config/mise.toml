@@ -6,6 +6,8 @@ typos = "1.50.3"
 rumdl = "0.2.77"
 oxfmt = { depends = "aube", "version" = "0.71.0" }
 aube = "2.3.0"
+# Runs go test, and writes JUnit reports for CI
+gotestsum = "1.13.0"
 # Read the end-to-end tests' secrets from 1Password
 fnox = "1.36.0"
 1password = "2.40.0"
