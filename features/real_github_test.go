@@ -1,3 +1,5 @@
+//go:build e2e
+
 package features
 
 import (
@@ -30,7 +32,9 @@ import (
 // it closes the open pull requests, deletes every release, and force pushes the scenario's branches and tags,
 // deleting the rest. Only use a repository that exists for this.
 //
-//	RELEASE_BOT_E2E_REPOSITORY=owner/name go test ./features -run TestEndToEnd -count=1
+//	RELEASE_BOT_E2E_REPOSITORY=owner/name go test -tags e2e ./features -run TestEndToEnd -count=1
+//
+// It only builds with the e2e tag, so ordinary test runs don't list it as skipped.
 //
 // It runs as a GitHub App installed on the repository, with read and write access to contents and pull requests,
 // whose client ID and private key are RELEASE_BOT_E2E_APP_CLIENT_ID and RELEASE_BOT_E2E_APP_PRIVATE_KEY,
