@@ -40,9 +40,9 @@ jobs:
           name: lint results
           path: test-results/lint.xml
           reporter: java-junit
-          # Every suite with its counts, and the tests that failed; the step above already fails the job
+          # Every linter, as there are only a few; the step above already fails the job
           list-suites: all
-          list-tests: failed
+          list-tests: all
           fail-on-error: false
       - name: Report test results
         # A fork's pull request can't create check runs
