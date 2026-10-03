@@ -14,8 +14,9 @@ import (
 	"github.com/CallumKerson/release-bot/internal/github/githubtest"
 )
 
-// These steps put the scenario's repository on a fake GitHub. The repository plays the checkout a GitHub Actions
-// workflow has: its origin is the fake's git repository, and the environment is what the workflow would give.
+// These steps put the scenario's repository on a fake GitHub. The repository plays a developer's clone, with the
+// fake's git repository as its origin. release-bot runs with --github from an empty directory, with the environment
+// a GitHub Actions workflow would give, as it works through GitHub's API alone and needs no checkout.
 
 // repository is the fake GitHub repository every scenario uses.
 const repository = "octo-org/widgets"
@@ -25,6 +26,8 @@ type gitHub struct {
 	server *githubtest.Server
 	// origin is the bare git repository behind the fake, and the scenario repository's origin.
 	origin string
+	// nowhere is the empty directory release-bot runs in with --github.
+	nowhere string
 	// before is GitHub as it was before the last command ran.
 	before gitHubSnapshot
 }
@@ -39,7 +42,8 @@ func registerGitHubSteps(scenario *godog.ScenarioContext, state *world) {
 		if state.github == nil {
 			return ctx, err
 		}
-		return ctx, errors.Join(err, state.github.server.Close(), os.RemoveAll(filepath.Dir(state.github.origin)))
+		return ctx, errors.Join(err, state.github.server.Close(), os.RemoveAll(filepath.Dir(state.github.origin)),
+			os.RemoveAll(state.github.nowhere))
 	})
 
 	scenario.Step(`^the repository is on GitHub$`, state.onGitHub)
@@ -52,7 +56,8 @@ func registerGitHubSteps(scenario *godog.ScenarioContext, state *world) {
 		state.pullRequestMerged,
 	)
 
-	scenario.Step(`^the release branch is pushed$`, state.releaseBranchPushed)
+	scenario.Step(`^the release branch is on GitHub$`, state.releaseBranchOnGitHub)
+	scenario.Step(`^the release commit is signed by GitHub$`, state.releaseCommitSigned)
 	scenario.Step(`^the release pull request is open, titled "(.*)"$`, state.pullRequestOpen)
 	scenario.Step(`^the release pull request says:$`, state.pullRequestSays)
 	scenario.Step(`^these GitHub releases are published:$`, state.releasesPublished)
@@ -76,11 +81,15 @@ func (w *world) onGitHub(ctx context.Context) error {
 	if _, err := w.git(ctx, nil, "remote", "add", "origin", origin); err != nil {
 		return err
 	}
+	nowhere, err := os.MkdirTemp("", "release-bot-nowhere-")
+	if err != nil {
+		return err
+	}
 	server, err := githubtest.Start(githubtest.Options{Repository: repository, Origin: origin})
 	if err != nil {
 		return err
 	}
-	w.github = &gitHub{server: server, origin: origin}
+	w.github = &gitHub{server: server, origin: origin, nowhere: nowhere}
 	w.env["GITHUB_TOKEN"] = githubtest.Token
 	w.env["GITHUB_REPOSITORY"] = repository
 	w.env["GITHUB_API_URL"] = server.URL
@@ -149,16 +158,32 @@ func (w *world) pullRequestMerged(ctx context.Context, strategy string) error {
 
 // Then
 
-func (w *world) releaseBranchPushed(ctx context.Context) error {
-	local, err := w.git(ctx, nil, "rev-parse", w.cfg.Branch)
+// releaseBranchOnGitHub checks GitHub has the release branch, one commit on top of main.
+func (w *world) releaseBranchOnGitHub(ctx context.Context) error {
+	if _, err := w.originRev(ctx, "refs/heads/"+w.cfg.Branch); err != nil {
+		return fmt.Errorf("the release branch is %w: GitHub doesn't have it, and release-bot said:\n%s",
+			errNotAsExpected, w.output)
+	}
+	parent, err := w.originRev(ctx, "refs/heads/"+w.cfg.Branch+"^")
 	if err != nil {
 		return err
 	}
-	pushed, err := w.originRev(ctx, "refs/heads/"+w.cfg.Branch)
+	main, err := w.originRev(ctx, "refs/heads/main")
 	if err != nil {
-		return fmt.Errorf("the release branch is %w: GitHub doesn't have it", errNotAsExpected)
+		return err
 	}
-	return compare("the release branch on GitHub", w.readable(local), w.readable(pushed))
+	return compare("the parent of the release commit on GitHub", w.readable(main), w.readable(parent))
+}
+
+func (w *world) releaseCommitSigned(ctx context.Context) error {
+	commit, err := w.originRev(ctx, "refs/heads/"+w.cfg.Branch)
+	if err != nil {
+		return err
+	}
+	if !w.github.server.Verified(commit) {
+		return fmt.Errorf("the release commit is %w: GitHub didn't sign it", errNotAsExpected)
+	}
+	return nil
 }
 
 func (w *world) pullRequestOpen(title string) error {

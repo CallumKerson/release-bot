@@ -17,9 +17,11 @@ func NewRootCommand(now func() time.Time, getenv func(string) string) *cobra.Com
 		SilenceUsage: true,
 		Version:      Version,
 	}
-	rootCmd.PersistentFlags().StringVarP(&opts.repo, "repo", "C", ".", "path inside the repository to release")
+	rootCmd.PersistentFlags().
+		StringVarP(&opts.repo, "repo", "C", ".", "path inside the local repository to release, without --github")
 	rootCmd.PersistentFlags().StringVar(&opts.config, "config", "",
-		"config file (default release-bot.toml or .config/release-bot.toml in the repository root)")
+		"config file, a path inside the repository with --github "+
+			"(default release-bot.toml or .config/release-bot.toml in the repository root)")
 	rootCmd.PersistentFlags().BoolVar(&opts.json, "json", false, "print the result as JSON")
 
 	rootCmd.AddCommand(newVersionCommand())

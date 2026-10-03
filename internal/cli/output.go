@@ -72,7 +72,7 @@ func printRun(out io.Writer, run *runOutput) {
 	}
 }
 
-// printApplied summarises what a run did to the local repository, or would do.
+// printApplied summarises what a run did to the repository, or would do.
 func printApplied(out io.Writer, result *release.Result, outcome *release.Outcome) {
 	if result.Nothing() {
 		fmt.Fprintln(out, "Nothing to release.")
@@ -112,7 +112,7 @@ func printPublished(out io.Writer, result *release.Result, published *release.Pu
 			fmt.Fprintf(out, "Would publish release %s\n", tag.Name)
 		}
 		if result.Branch != nil {
-			fmt.Fprintf(out, "Would push %s and open or update its pull request\n", result.Branch.Name)
+			fmt.Fprintf(out, "Would open or update the pull request from %s\n", result.Branch.Name)
 		}
 		return
 	}
@@ -120,9 +120,6 @@ func printPublished(out io.Writer, result *release.Result, published *release.Pu
 		if rel.Created {
 			fmt.Fprintf(out, "Published release %s: %s\n", rel.Tag, rel.URL)
 		}
-	}
-	if published.BranchPushed {
-		fmt.Fprintf(out, "Pushed %s\n", result.Branch.Name)
 	}
 	if pull := published.PullRequest; pull != nil {
 		switch pull.Action {

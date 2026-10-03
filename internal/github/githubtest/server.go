@@ -165,8 +165,12 @@ func (s *Server) Requests() []Request {
 }
 
 // Writes returns the requests received so far that could change something.
+// Creating a tree or blob isn't one: a git object nothing refers to changes nothing anyone can see.
 func (s *Server) Writes() []Request {
-	return slices.DeleteFunc(s.Requests(), func(request Request) bool { return request.Method == http.MethodGet })
+	return slices.DeleteFunc(s.Requests(), func(request Request) bool {
+		return request.Method == http.MethodGet || strings.HasSuffix(request.Path, "/git/trees") ||
+			strings.HasSuffix(request.Path, "/git/blobs")
+	})
 }
 
 // Unexpected returns the requests the fake doesn't serve, as "METHOD path".

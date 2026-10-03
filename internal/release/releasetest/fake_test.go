@@ -10,22 +10,12 @@ func TestFakeContract(t *testing.T) {
 	RunContract(t, func(_ *testing.T, history ...Commit) release.Repo { return NewFake(history...) })
 }
 
-func TestFakeRemoteContract(t *testing.T) {
-	RunRemoteContract(
-		t,
-		func(_ *testing.T, history ...Commit) (release.Repo, release.Remote, func(string) (string, bool)) {
-			fake := NewFake(history...)
-			return fake, fake, fake.Pushed
-		},
-	)
-}
-
 func TestFakeHostContract(t *testing.T) {
 	RunHostContract(t, func(_ *testing.T, history ...Commit) *HostFixture {
 		fake := NewFake(history...)
 		host := NewFakeHost(fake)
 		return &HostFixture{
-			Repo: fake, Remote: fake, Host: host, Pushed: fake.Pushed,
+			Repo: fake, Host: host,
 			Merge: func(_ *testing.T, number int) { host.Merge(number) },
 		}
 	})

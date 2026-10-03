@@ -253,15 +253,25 @@ func (w *world) releaseBot(ctx context.Context, args ...string) error {
 			return err
 		}
 	}
+	// On GitHub, release-bot needs no checkout, so it runs from an empty directory.
+	onGitHub := w.github != nil && slices.Contains(args, "--github")
+	dir := w.dir
+	if onGitHub {
+		dir = w.github.nowhere
+	}
 	cmd := cli.NewRootCommand(func() time.Time { return w.today }, w.getenv)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
-	cmd.SetArgs(append([]string{"--repo", w.dir}, args...))
+	cmd.SetArgs(append([]string{"--repo", dir}, args...))
 	w.err = cmd.ExecuteContext(ctx)
 	w.output = out.String()
 
-	if sha, err := w.git(ctx, nil, "rev-parse", "--verify", "--quiet", w.cfg.Branch); err == nil {
+	branch := func() (string, error) { return w.git(ctx, nil, "rev-parse", "--verify", "--quiet", w.cfg.Branch) }
+	if onGitHub {
+		branch = func() (string, error) { return w.originRev(ctx, "refs/heads/"+w.cfg.Branch) }
+	}
+	if sha, err := branch(); err == nil {
 		if _, labelled := w.shas[sha]; !labelled {
 			w.label(releaseLabel, sha)
 		}

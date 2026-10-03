@@ -2,8 +2,6 @@ package github
 
 import (
 	"net/http"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -11,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/CallumKerson/release-bot/internal/git"
 	"github.com/CallumKerson/release-bot/internal/github/githubtest"
 	"github.com/CallumKerson/release-bot/internal/release"
 	"github.com/CallumKerson/release-bot/internal/release/releasetest"
@@ -22,27 +19,10 @@ const repository = "octo-org/widgets"
 func TestHostContract(t *testing.T) {
 	releasetest.RunHostContract(t, func(t *testing.T, history ...releasetest.Commit) *releasetest.HostFixture {
 		t.Helper()
-		work := releasetest.NewGit(t, history...)
-		origin := filepath.Join(t.TempDir(), "origin.git")
-		work.Git("init", "--quiet", "--bare", origin)
-		work.Git("remote", "add", "origin", origin)
-		work.Git("push", "--quiet", "origin", "main")
-
-		server := githubtest.New(t, githubtest.Options{Repository: repository, Origin: origin})
-		host, err := New(Options{Token: githubtest.Token, Repository: repository, APIURL: server.URL})
-		require.NoError(t, err)
-		repo, err := git.Open(t.Context(), work.Dir)
-		require.NoError(t, err)
-		remote := repo.Remote("origin")
+		server, host := onGitHub(t, releasetest.NewGit(t, history...), "")
 		return &releasetest.HostFixture{
-			Repo:   repo,
-			Remote: remote,
-			Host:   host,
-			Pushed: func(ref string) (string, bool) {
-				out, err := exec.CommandContext(t.Context(), "git", "--git-dir", origin,
-					"rev-parse", "--verify", "--quiet", ref+"^{commit}").Output()
-				return strings.TrimSpace(string(out)), err == nil
-			},
+			Repo: host,
+			Host: host,
 			Merge: func(t *testing.T, number int) {
 				t.Helper()
 				_, err := server.MergePullRequest(t.Context(), number, githubtest.Squash)
