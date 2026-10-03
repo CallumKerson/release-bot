@@ -62,15 +62,17 @@ jobs:
           fail-on-error: false
           # A check run, with annotations on failures, rather than only a job summary
           use-actions-summary: false
-      # dorny writes a check run or a job summary, not both, so the check runs' reports are added to the summary too
+      # dorny writes a check run or a job summary, not both, so the check runs' reports are copied into the summary.
+      # Its unreleased summary_file output will make the copy simpler.
       - name: Summarise lint and test results
         if: ${{ !cancelled() && !github.event.pull_request.head.repo.fork }}
         env:
-          LINT_SUMMARY: ${{ steps.lint-report.outputs.summary_file }}
-          TEST_SUMMARY: ${{ steps.test-report.outputs.summary_file }}
+          GH_TOKEN: ${{ github.token }}
+          LINT_REPORT: ${{ steps.lint-report.outputs.url }}
+          TEST_REPORT: ${{ steps.test-report.outputs.url }}
         run: |
-          for summary in "$LINT_SUMMARY" "$TEST_SUMMARY"; do
-            if [ -f "$summary" ]; then cat "$summary" >> "$GITHUB_STEP_SUMMARY"; fi
+          for report in "$LINT_REPORT" "$TEST_REPORT"; do
+            if [ -n "$report" ]; then gh api "$report" --jq '"## \(.name)\n\n\(.output.summary)\n"' >> "$GITHUB_STEP_SUMMARY"; fi
           done
 
   # The GitHub scenarios against the real CallumKerson/release-bot-test-repo, which each scenario resets.
@@ -132,7 +134,8 @@ jobs:
           # A check run, with annotations on failures, rather than only a job summary
           use-actions-summary: false
       - name: Summarise end-to-end results
-        if: ${{ !cancelled() && steps.e2e-report.outputs.summary_file != '' }}
+        if: ${{ !cancelled() && steps.e2e-report.outputs.url != '' }}
         env:
-          SUMMARY: ${{ steps.e2e-report.outputs.summary_file }}
-        run: cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ steps.e2e-report.outputs.url }}
+        run: gh api "$REPORT" --jq '"## \(.name)\n\n\(.output.summary)\n"' >> "$GITHUB_STEP_SUMMARY"
