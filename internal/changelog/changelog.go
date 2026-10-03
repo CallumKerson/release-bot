@@ -118,3 +118,23 @@ func Prepend(existing, release string) string {
 	}
 	return out
 }
+
+// Section returns the notes of version in a changelog: the lines under its "## <version>" heading,
+// up to the next release's heading, without the heading itself. It is false when there is no such release.
+func Section(changelog, version string) (string, bool) {
+	var out []string
+	found := false
+	for line := range strings.Lines(changelog) {
+		heading, isRelease := strings.CutPrefix(line, "## ")
+		if isRelease && found {
+			break
+		}
+		if found {
+			out = append(out, line)
+			continue
+		}
+		heading = strings.TrimSpace(heading)
+		found = isRelease && (heading == version || strings.HasPrefix(heading, version+" "))
+	}
+	return strings.TrimSpace(strings.Join(out, "")), found
+}

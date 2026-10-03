@@ -97,3 +97,28 @@ func TestPrepend(t *testing.T) {
 		})
 	}
 }
+
+func TestSection(t *testing.T) {
+	changelog := "# Changelog\n\n" +
+		"## 1.2.0-rc.1 (2026-10-02)\n\n### Features\n\n- candidate (aaa)\n\n" +
+		"## 1.2.0 (2026-10-01)\n\n### Features\n\n- new (bbb)\n\n### Bug Fixes\n\n- old (ccc)\n\n" +
+		"## 1.1.0\n\n- first (ddd)\n"
+	tests := map[string]struct {
+		version string
+		want    string
+		found   bool
+	}{
+		"newest":              {"1.2.0-rc.1", "### Features\n\n- candidate (aaa)", true},
+		"between others":      {"1.2.0", "### Features\n\n- new (bbb)\n\n### Bug Fixes\n\n- old (ccc)", true},
+		"undated, at the end": {"1.1.0", "- first (ddd)", true},
+		"missing":             {"1.0.0", "", false},
+		"prefix of another":   {"1.2", "", false},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, found := Section(changelog, tt.version)
+			assert.Equal(t, tt.found, found)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
