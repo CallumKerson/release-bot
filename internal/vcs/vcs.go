@@ -5,6 +5,8 @@ package vcs
 type Commit struct {
 	SHA     string
 	Message string
+	// Parents are the commit's parents, first parent first. A root commit has none.
+	Parents []string
 	// Files are the paths the commit changed, relative to the repository root.
 	Files []string
 }

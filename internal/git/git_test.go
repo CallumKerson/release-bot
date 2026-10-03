@@ -13,6 +13,7 @@ import (
 	"github.com/CallumKerson/release-bot/internal/release"
 	"github.com/CallumKerson/release-bot/internal/release/releasetest"
 	"github.com/CallumKerson/release-bot/internal/testing/gitrepo"
+	"github.com/CallumKerson/release-bot/internal/vcs"
 )
 
 func open(t *testing.T, fixture *gitrepo.Repo) *Repo {
@@ -157,13 +158,13 @@ func TestReadFile(t *testing.T) {
 func TestFileHistory(t *testing.T) {
 	fixture := gitrepo.New(t)
 	first := fixture.Commit("chore: one", "m.json")
-	fixture.Commit("chore: other", "other.txt")
+	second := fixture.Commit("chore: other", "other.txt")
 	third := fixture.Commit("chore: two", "m.json")
 	repo := open(t, fixture)
 
 	history, err := repo.FileHistory(t.Context(), "HEAD", "m.json")
 	require.NoError(t, err)
-	assert.Equal(t, []string{third, first}, history)
+	assert.Equal(t, []vcs.Commit{{SHA: third, Parents: []string{second}}, {SHA: first}}, history)
 }
 
 func TestTags(t *testing.T) {

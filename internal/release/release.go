@@ -30,7 +30,7 @@ type Repo interface {
 	TagCommit(ctx context.Context, tag string) (commit string, ok bool, err error)
 	Log(ctx context.Context, base, head string) ([]vcs.Commit, error)
 	ReadFile(ctx context.Context, rev, path string) (content []byte, ok bool, err error)
-	FileHistory(ctx context.Context, rev, path string) ([]string, error)
+	FileHistory(ctx context.Context, rev, path string) ([]vcs.Commit, error)
 	CreateTag(ctx context.Context, tag, commit, message string) error
 	WriteBranch(
 		ctx context.Context,
@@ -299,19 +299,21 @@ func releaseCommits(ctx context.Context, repo Repo, path, head string, untagged 
 	found := make([]Tag, 0, len(untagged))
 	remaining := slices.Clone(untagged)
 	for _, commit := range history {
-		after, err := manifestAt(ctx, repo, commit, path)
+		after, err := manifestAt(ctx, repo, commit.SHA, path)
 		if err != nil {
 			return nil, err
 		}
-		before, err := manifestAt(ctx, repo, commit+"^", path)
-		if err != nil {
-			return nil, err
+		before := manifest.Manifest{}
+		if len(commit.Parents) > 0 {
+			if before, err = manifestAt(ctx, repo, commit.Parents[0], path); err != nil {
+				return nil, err
+			}
 		}
 		remaining = slices.DeleteFunc(remaining, func(tag Tag) bool {
 			if after[tag.Package] != tag.Version || before[tag.Package] == tag.Version {
 				return false
 			}
-			tag.ReleaseCommit = commit
+			tag.ReleaseCommit = commit.SHA
 			found = append(found, tag)
 			return true
 		})
