@@ -4,7 +4,8 @@ release-bot releases the packages of a repository from [conventional commits](ht
 It works like release-please, but treats shared code in monorepos as a first-class idea: a change to a shared library releases every app that depends on it.
 
 This is a prototype.
-It works on a local repository only: it creates tags and a branch, and never talks to GitHub.
+On its own it works on a local repository, creating tags and a branch.
+With `--github` it also opens the release pull request and publishes GitHub releases, as release-please does.
 
 ## What a run does
 
@@ -21,6 +22,49 @@ It never touches the working tree, the index or the checked-out branch.
 
 `release-bot plan` explains what `run` would do and why, commit by commit, without changing anything.
 Both commands take `--json` for machine-readable output.
+
+## On GitHub
+
+`release-bot run --github` runs in a GitHub Actions checkout.
+After doing its local work, it:
+
+1. pushes the tags, and publishes a GitHub release of each current version that doesn't have one, with that version's changelog notes;
+2. pushes the release branch, and opens the release pull request into the default branch, or updates the open one.
+
+Merging the release pull request is how a release happens, and the next run tags and publishes it.
+Runs are idempotent on GitHub too, and a run that stops part way through is finished by the next.
+On a repository adopting release-bot, the first run publishes a release of each current version that has none.
+
+```yaml
+name: Release
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # release-bot reads the history and tags
+      - run: go run github.com/CallumKerson/release-bot/cmd/release-bot@latest run --github
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The token comes from `GITHUB_TOKEN`.
+The repository and API URL come from `GITHUB_REPOSITORY` and `GITHUB_API_URL`, which Actions sets, or from `--github-repo` and `--github-api-url`.
+Pushes go to the `origin` remote, or the one `--remote` names, using the credentials `actions/checkout` leaves behind.
+
+With the workflow's own `GITHUB_TOKEN`, the repository must allow GitHub Actions to create pull requests, under Settings → Actions → General.
+GitHub doesn't run workflows for pull requests that token opens, so checks won't run on the release pull request.
+To have them run, use a GitHub App token, for example from `actions/create-github-app-token`.
 
 ## Configuration
 
