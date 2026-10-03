@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Runs the GitHub feature scenarios against a real GitHub repository, which they reset"
+
+set -euo pipefail
+
+# The scenarios force push to this repository and delete its releases, so it must exist only for them
+export RELEASE_BOT_E2E_REPOSITORY="${RELEASE_BOT_E2E_REPOSITORY:-CallumKerson/release-bot-test-repo}"
+
+# fnox reads the GitHub App's client ID and private key from 1Password
+fnox exec -- go test ./features -run TestEndToEnd -count=1 "$@"

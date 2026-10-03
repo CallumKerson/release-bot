@@ -58,6 +58,7 @@ From then on, commits in the git history are pushed to main on GitHub as they ar
 With `--github`, release-bot runs from an empty directory, as it works through GitHub's API alone and needs no checkout.
 
 The fake GitHub runs in process, over a bare git repository, so the scenarios need no network or account.
+In end-to-end mode the same scenarios run against a real GitHub repository instead (see below).
 `When the release pull request is merged with …` merges it on GitHub the way GitHub's merge button does, then updates the scenario's repository to the new main, so later steps can name its commits.
 
 ## Running
@@ -66,4 +67,21 @@ The fake GitHub runs in process, over a bare git repository, so the scenarios ne
 go test ./features -run TestFeatures                         # every scenario
 go test ./features -run 'TestFeatures/A_feature_in_lib-1'     # scenarios whose name starts with this
 go test ./features -run TestFeatures -v -godog.format=pretty  # print each step as it runs
+```
+
+### End to end
+
+`mise run e2e` runs the GitHub scenarios against the real [release-bot-test-repo](https://github.com/CallumKerson/release-bot-test-repo).
+Each scenario resets that repository: it closes open pull requests, deletes every release, and force pushes the scenario's branches and tags in place of the ones there.
+Set `RELEASE_BOT_E2E_REPOSITORY` to use another, but only one that exists for this.
+
+It runs as a GitHub App installed on the repository, because GitHub only signs release-bot's commits for an app or a workflow's token. [fnox](https://fnox.jdx.dev) reads the app's client ID and private key from 1Password, as `fnox.toml` says.
+`RELEASE_BOT_E2E_TOKEN` runs it with a token instead.
+
+The repository's name and pull request numbers are shown as the fake's, so the scenarios read the same in both modes.
+Steps that read GitHub's lists retry for a few seconds, as a real GitHub can take a moment to list what release-bot just did.
+
+```sh
+mise run e2e                                 # every GitHub scenario
+mise run e2e -- -v -godog.format=pretty      # print each step as it runs
 ```

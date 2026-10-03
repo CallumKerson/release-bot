@@ -77,7 +77,7 @@ With `--github` it is the GitHub repository, read and written through the API al
 - Unit tests use testify/assert and testify/require
 - `internal/release` is unit tested against `releasetest.Fake` and `releasetest.FakeHost`.
   `releasetest.RunContract` runs against the fake, the git adapter and the GitHub adapter, and `RunHostContract` against both `FakeHost` and the GitHub adapter; any new implementation should run them too
-- Nothing runs against the real GitHub, so `githubtest` aims to behave like it: go-github's types on the wire, refs looked up in a real bare repository, GitHub's documented errors, and merges made as GitHub makes them.
+- Only the end-to-end run (below) uses the real GitHub, so `githubtest` aims to behave like it: go-github's types on the wire, refs looked up in a real bare repository, GitHub's documented errors, and merges made as GitHub makes them.
   Requests it doesn't serve fail the test, so a new endpoint needs adding to the fake, with a link to GitHub's docs
 - `internal/changelog/testdata` holds golden files; regenerate with `go test ./internal/changelog -update`
 - `features/*.feature` are [godog](https://github.com/cucumber/godog) scenarios run by `features/features_test.go`.
@@ -85,6 +85,9 @@ With `--github` it is the GitHub repository, read and written through the API al
   Each scenario builds a temporary repository from a git history written in the feature, then runs the real commands in-process.
   Commit hashes in output are replaced by the history's commit labels.
   `features/github.feature` puts the repository on a `githubtest` fake as its origin, with the environment a workflow provides, and runs release-bot from an empty directory
+- `mise run e2e` runs `features/github.feature` against the real `CallumKerson/release-bot-test-repo`, which each scenario resets, as a GitHub App whose credentials fnox reads from 1Password (`fnox.toml`).
+  The steps reach GitHub through the `gitHub` interface in `features/github_test.go`, implemented by `fake_github_test.go` and `real_github_test.go`, so a new GitHub step needs both.
+  It isn't part of `mise run test` or CI; run it after changing how release-bot uses GitHub
 - Git tests are isolated from the user's git config by `internal/testing/gitrepo.Isolate`
 
 ## Import Organization
