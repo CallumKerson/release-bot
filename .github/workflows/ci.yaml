@@ -36,7 +36,7 @@ jobs:
         id: lint-report
         # A fork's pull request can't create check runs
         if: ${{ !cancelled() && !github.event.pull_request.head.repo.fork }}
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        uses: dorny/test-reporter@e432d9eb1656cd7e1b3800a1e9c5d2fb8182f5ee # v3.1.0
         with:
           name: lint results
           path: test-results/lint.xml
@@ -51,7 +51,7 @@ jobs:
         id: test-report
         # A fork's pull request can't create check runs
         if: ${{ !cancelled() && !github.event.pull_request.head.repo.fork }}
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        uses: dorny/test-reporter@e432d9eb1656cd7e1b3800a1e9c5d2fb8182f5ee # v3.1.0
         with:
           name: test results
           path: test-results/tests.json
@@ -62,17 +62,20 @@ jobs:
           fail-on-error: false
           # A check run, with annotations on failures, rather than only a job summary
           use-actions-summary: false
-      # dorny writes a check run or a job summary, not both, so the check runs' reports are copied into the summary.
-      # Its unreleased summary_file output will make the copy simpler.
+      # dorny writes a check run or a job summary, not both, so the check runs' reports are copied into the summary
       - name: Summarise lint and test results
         if: ${{ !cancelled() && !github.event.pull_request.head.repo.fork }}
         env:
-          GH_TOKEN: ${{ github.token }}
-          LINT_REPORT: ${{ steps.lint-report.outputs.url }}
-          TEST_REPORT: ${{ steps.test-report.outputs.url }}
+          LINT_REPORT: ${{ steps.lint-report.outputs.summary_file }}
+          TEST_REPORT: ${{ steps.test-report.outputs.summary_file }}
         run: |
-          for report in "$LINT_REPORT" "$TEST_REPORT"; do
-            if [ -n "$report" ]; then gh api "$report" --jq '"## \(.name)\n\n\(.output.summary)\n"' >> "$GITHUB_STEP_SUMMARY"; fi
+          for report in "lint results:$LINT_REPORT" "test results:$TEST_REPORT"; do
+            if [ -f "${report#*:}" ]; then
+              printf '## %s\n\n' "${report%%:*}" >> "$GITHUB_STEP_SUMMARY"
+              cat "${report#*:}" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::No ${report%%:*} report to summarise"
+            fi
           done
 
   # The GitHub scenarios against the real CallumKerson/release-bot-test-repo, which each scenario resets.
@@ -122,7 +125,7 @@ jobs:
         id: e2e-report
         # A fork's pull request can't create check runs
         if: ${{ !cancelled() && !github.event.pull_request.head.repo.fork }}
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        uses: dorny/test-reporter@e432d9eb1656cd7e1b3800a1e9c5d2fb8182f5ee # v3.1.0
         with:
           name: e2e results
           path: test-results/e2e.json
@@ -134,8 +137,13 @@ jobs:
           # A check run, with annotations on failures, rather than only a job summary
           use-actions-summary: false
       - name: Summarise end-to-end results
-        if: ${{ !cancelled() && steps.e2e-report.outputs.url != '' }}
+        if: ${{ !cancelled() }}
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPORT: ${{ steps.e2e-report.outputs.url }}
-        run: gh api "$REPORT" --jq '"## \(.name)\n\n\(.output.summary)\n"' >> "$GITHUB_STEP_SUMMARY"
+          REPORT: ${{ steps.e2e-report.outputs.summary_file }}
+        run: |
+          if [ -f "$REPORT" ]; then
+            printf '## e2e results\n\n' >> "$GITHUB_STEP_SUMMARY"
+            cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::No e2e results report to summarise"
+          fi
