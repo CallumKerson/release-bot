@@ -49,6 +49,15 @@ release-bot's own commits get labels too:
 - `release` is the commit release-bot puts on the release branch.
 - `squashed release` is the commit on main made by squash merging the release branch.
 - `merge of <branch>` is the merge commit made by merging a branch with a merge commit.
+- `rebased release` is the commit on main made by rebase merging the release pull request on GitHub.
+
+## GitHub
+
+`Given the repository is on GitHub` gives the scenario's repository a fake GitHub as its origin, as in a GitHub Actions checkout. release-bot gets the token, repository and API URL from the environment, the way a workflow provides them.
+From then on, commits in the git history are pushed to main on GitHub as they are made.
+
+The fake GitHub runs in process, over a bare git repository, so the scenarios need no network or account.
+`When the release pull request is merged with …` merges it on GitHub the way GitHub's merge button does, then updates the repository to the new main, as the next workflow run's checkout would be.
 
 ## Running
 

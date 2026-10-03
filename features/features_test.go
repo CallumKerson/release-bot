@@ -64,6 +64,8 @@ type world struct {
 
 	// env is the environment release-bot sees.
 	env map[string]string
+	// github is the scenario's fake GitHub, once the repository is on it.
+	github *gitHub
 
 	// before is the repository as it was before the last command ran.
 	before snapshot
@@ -101,7 +103,7 @@ func initializeScenario(scenario *godog.ScenarioContext) {
 	scenario.Step(`^someone has uncommitted work in progress$`, state.uncommittedWork)
 
 	scenario.Step(`^release-bot (runs|plans)$`, state.releaseBotRuns)
-	scenario.Step(`^release-bot runs with (--[\w-]+)$`, state.releaseBotRunsWith)
+	scenario.Step(`^release-bot runs with (--[\w-]+(?: --[\w-]+)*)$`, state.releaseBotRunsWith)
 	scenario.Step(
 		`^the release branch is merged with (a fast-forward|a merge commit|a squash merge)$`,
 		state.releaseMerged,
@@ -118,6 +120,8 @@ func initializeScenario(scenario *godog.ScenarioContext) {
 	scenario.Step(`^no tags are created$`, state.noTagsAreCreated)
 	scenario.Step(`^the working tree is untouched$`, state.theWorkingTreeIsUntouched)
 	scenario.Step(`^nothing in the repository changes$`, state.nothingChanges)
+
+	registerGitHubSteps(scenario, state)
 }
 
 // Given
@@ -136,6 +140,7 @@ func (w *world) theReleaseConfig(content *godog.DocString) error {
 	return os.WriteFile(filepath.Join(w.dir, "release-bot.toml"), []byte(content.Content+"\n"), 0o600)
 }
 
+// theGitHistory makes the commits of history. When the repository is on GitHub, main is pushed there too.
 func (w *world) theGitHistory(ctx context.Context, history *godog.DocString) error {
 	commits, err := parseHistory(history.Content)
 	if err != nil {
@@ -147,7 +152,7 @@ func (w *world) theGitHistory(ctx context.Context, history *godog.DocString) err
 			return fmt.Errorf("commit %s: %w", commit.label, err)
 		}
 	}
-	return nil
+	return w.push(ctx)
 }
 
 func (w *world) commit(ctx context.Context, commit *historyCommit) error {
@@ -232,8 +237,8 @@ func (w *world) releaseBotRuns(ctx context.Context, command string) error {
 	return w.releaseBot(ctx, strings.TrimSuffix(command, "s"))
 }
 
-func (w *world) releaseBotRunsWith(ctx context.Context, option string) error {
-	return w.releaseBot(ctx, "run", option)
+func (w *world) releaseBotRunsWith(ctx context.Context, options string) error {
+	return w.releaseBot(ctx, append([]string{"run"}, strings.Fields(options)...)...)
 }
 
 // releaseBot runs a release-bot command in the scenario's repository, recording its output.
@@ -242,6 +247,11 @@ func (w *world) releaseBot(ctx context.Context, args ...string) error {
 	var err error
 	if w.before, err = w.snapshot(ctx); err != nil {
 		return err
+	}
+	if w.github != nil {
+		if w.github.before, err = w.gitHubSnapshot(ctx); err != nil {
+			return err
+		}
 	}
 	cmd := cli.NewRootCommand(func() time.Time { return w.today }, w.getenv)
 	var out bytes.Buffer
