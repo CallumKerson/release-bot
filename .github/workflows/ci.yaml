@@ -16,6 +16,13 @@ jobs:
   ci:
     name: ci
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write # to report the test results
+    env:
+      LINT_JUNITFILE: test-results/lint.xml
+      GOTESTSUM_JUNITFILE: test-results/tests.xml
+      GOTESTSUM_FORMAT: github-actions
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -23,7 +30,25 @@ jobs:
           persist-credentials: false
       - name: Install tooling
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-      - run: mise run ci
+      - run: mkdir -p test-results && mise run ci
+      - name: Report lint results
+        if: ${{ !cancelled() }}
+        uses: mikepenz/action-junit-report@a9170d5795813c01ab4901ffb045b52bab4ab09d # v6.5.0
+        with:
+          report_paths: test-results/lint.xml
+          check_name: lint results
+          # A fork's pull request can't create check runs, so it gets annotations alone
+          annotate_only: ${{ github.event.pull_request.head.repo.fork == true }}
+          skip_success_summary: true
+      - name: Report test results
+        if: ${{ !cancelled() }}
+        uses: mikepenz/action-junit-report@a9170d5795813c01ab4901ffb045b52bab4ab09d # v6.5.0
+        with:
+          report_paths: test-results/tests.xml
+          check_name: test results
+          annotate_only: ${{ github.event.pull_request.head.repo.fork == true }}
+          require_tests: true
+          skip_success_summary: true
 
   # The GitHub scenarios against the real CallumKerson/release-bot-test-repo, which each scenario resets.
   # They take minutes, so they only run once everything else, including the same scenarios on the fake, has passed.
@@ -44,6 +69,9 @@ jobs:
     environment:
       name: e2e
       deployment: false
+    permissions:
+      contents: read
+      checks: write # to report the test results
     steps:
       - name: Get a token for the GitHub App
         id: app
@@ -59,8 +87,16 @@ jobs:
       - name: Install Go
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: go
-      - run: go test ./features -run TestEndToEnd -count=1 -v -godog.format=pretty
+          install_args: go gotestsum
+      - run: gotestsum --format github-actions --junitfile test-results/e2e.xml -- ./features -run TestEndToEnd -count=1
         env:
           RELEASE_BOT_E2E_REPOSITORY: CallumKerson/release-bot-test-repo
           RELEASE_BOT_E2E_TOKEN: ${{ steps.app.outputs.token }}
+      - name: Report end-to-end results
+        if: ${{ !cancelled() }}
+        uses: mikepenz/action-junit-report@a9170d5795813c01ab4901ffb045b52bab4ab09d # v6.5.0
+        with:
+          report_paths: test-results/e2e.xml
+          check_name: e2e results
+          require_tests: true
+          skip_success_summary: true

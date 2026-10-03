@@ -6,4 +6,5 @@
 
 set -euxo pipefail
 
-go test ./...
+# gotestsum runs go test. CI sets GOTESTSUM_FORMAT and GOTESTSUM_JUNITFILE to group the log and report the results
+gotestsum -- ./...
