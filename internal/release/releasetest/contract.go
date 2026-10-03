@@ -15,6 +15,8 @@ const (
 	appMain   = "app/main.go"
 	changelog = "CHANGELOG.md"
 	firstTag  = "v1.0.0"
+	secondTag = "v2.0.0"
+	appName   = "app"
 )
 
 // Builder returns a repository whose checked out branch, appMain, has history, oldest commit first.
@@ -99,17 +101,17 @@ func testTags(t *testing.T, repo release.Repo, log []vcs.Commit) {
 	assert.True(t, found)
 	assert.Equal(t, log[0].SHA, commit)
 
-	_, found, err = repo.TagCommit(t.Context(), "v2.0.0")
+	_, found, err = repo.TagCommit(t.Context(), secondTag)
 	require.NoError(t, err)
 	assert.False(t, found, "a missing tag")
 
-	require.NoError(t, repo.CreateTag(t.Context(), "v2.0.0", log[1].SHA, "app 2.0.0"))
-	commit, found, err = repo.TagCommit(t.Context(), "v2.0.0")
+	require.NoError(t, repo.CreateTag(t.Context(), secondTag, log[1].SHA, "app 2.0.0"))
+	commit, found, err = repo.TagCommit(t.Context(), secondTag)
 	require.NoError(t, err)
 	assert.True(t, found)
 	assert.Equal(t, log[1].SHA, commit)
 
-	require.Error(t, repo.CreateTag(t.Context(), "v2.0.0", log[0].SHA, "again"), "an existing tag")
+	require.Error(t, repo.CreateTag(t.Context(), secondTag, log[0].SHA, "again"), "an existing tag")
 }
 
 func testWriteBranch(t *testing.T, repo release.Repo, log []vcs.Commit) {
@@ -167,8 +169,8 @@ func RunRemoteContract(t *testing.T, build RemoteBuilder) {
 		assert.True(t, found)
 		assert.Equal(t, log[0].SHA, commit, "the tag's commit")
 
-		require.NoError(t, repo.CreateTag(t.Context(), "v2.0.0", log[1].SHA, "app 2.0.0"))
-		require.NoError(t, remote.PushTags(t.Context(), []string{firstTag, "v2.0.0"}), "pushed tags are left alone")
+		require.NoError(t, repo.CreateTag(t.Context(), secondTag, log[1].SHA, "app 2.0.0"))
+		require.NoError(t, remote.PushTags(t.Context(), []string{firstTag, secondTag}), "pushed tags are left alone")
 		commit, found = pushed("refs/tags/v2.0.0")
 		assert.True(t, found)
 		assert.Equal(t, log[1].SHA, commit)

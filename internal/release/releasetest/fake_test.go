@@ -19,3 +19,14 @@ func TestFakeRemoteContract(t *testing.T) {
 		},
 	)
 }
+
+func TestFakeHostContract(t *testing.T) {
+	RunHostContract(t, func(_ *testing.T, history ...Commit) *HostFixture {
+		fake := NewFake(history...)
+		host := NewFakeHost(fake)
+		return &HostFixture{
+			Repo: fake, Remote: fake, Host: host, Pushed: fake.Pushed,
+			Merge: func(_ *testing.T, number int) { host.Merge(number) },
+		}
+	})
+}
