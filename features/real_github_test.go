@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -255,6 +256,10 @@ func (r *realGitHub) verified(ctx context.Context, commit string) (bool, error) 
 }
 
 func (r *realGitHub) openPullRequests(ctx context.Context) ([]pullRequest, error) {
+	return settled(ctx, func() ([]pullRequest, error) { return r.listOpenPullRequests(ctx) })
+}
+
+func (r *realGitHub) listOpenPullRequests(ctx context.Context) ([]pullRequest, error) {
 	pulls, _, err := r.client.PullRequests.List(ctx, r.owner, r.name,
 		&gogithub.PullRequestListOptions{State: "open", PerPage: 100})
 	open := make([]pullRequest, 0, len(pulls))
@@ -265,6 +270,10 @@ func (r *realGitHub) openPullRequests(ctx context.Context) ([]pullRequest, error
 }
 
 func (r *realGitHub) releases(ctx context.Context) ([]release, error) {
+	return settled(ctx, func() ([]release, error) { return r.listReleases(ctx) })
+}
+
+func (r *realGitHub) listReleases(ctx context.Context) ([]release, error) {
 	published, _, err := r.client.Repositories.ListReleases(ctx, r.owner, r.name, &gogithub.ListOptions{PerPage: 100})
 	out := make([]release, 0, len(published))
 	for _, each := range published {
@@ -275,6 +284,10 @@ func (r *realGitHub) releases(ctx context.Context) ([]release, error) {
 
 // activity lists the open pull requests and the releases, with when each last changed.
 func (r *realGitHub) activity(ctx context.Context) (string, error) {
+	return settled(ctx, func() (string, error) { return r.listActivity(ctx) })
+}
+
+func (r *realGitHub) listActivity(ctx context.Context) (string, error) {
 	pulls, _, err := r.client.PullRequests.List(ctx, r.owner, r.name,
 		&gogithub.PullRequestListOptions{State: "all", PerPage: 100})
 	if err != nil {
@@ -292,6 +305,32 @@ func (r *realGitHub) activity(ctx context.Context) (string, error) {
 		lines = append(lines, fmt.Sprintf("release %d of %s", release.GetID(), release.GetTagName()))
 	}
 	return r.readable(strings.Join(lines, "\n")), err
+}
+
+// settleAttempts is how many times settled reads before giving up on GitHub's lists agreeing.
+const settleAttempts = 10
+
+// settled reads until two reads a second apart agree, and returns the last read.
+// GitHub's lists can briefly lag behind what was just done, such as not yet listing a release just published,
+// and a step comparing GitHub before and after a command needs both to be up to date.
+func settled[T any](ctx context.Context, read func() (T, error)) (T, error) {
+	last, err := read()
+	for range settleAttempts {
+		if err != nil {
+			return last, err
+		}
+		select {
+		case <-ctx.Done():
+			return last, ctx.Err()
+		case <-time.After(time.Second):
+		}
+		next, nextErr := read()
+		if nextErr == nil && reflect.DeepEqual(next, last) {
+			return next, nil
+		}
+		last, err = next, nextErr
+	}
+	return last, err
 }
 
 // readable names the repository and numbers its pull requests as the fake GitHub does.
