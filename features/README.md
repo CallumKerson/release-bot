@@ -53,11 +53,12 @@ release-bot's own commits get labels too:
 
 ## GitHub
 
-`Given the repository is on GitHub` gives the scenario's repository a fake GitHub as its origin, as in a GitHub Actions checkout. release-bot gets the token, repository and API URL from the environment, the way a workflow provides them.
+`Given the repository is on GitHub` gives the scenario's repository a fake GitHub as its origin. release-bot gets the token, repository and API URL from the environment, the way a workflow provides them.
 From then on, commits in the git history are pushed to main on GitHub as they are made.
+With `--github`, release-bot runs from an empty directory, as it works through GitHub's API alone and needs no checkout.
 
 The fake GitHub runs in process, over a bare git repository, so the scenarios need no network or account.
-`When the release pull request is merged with …` merges it on GitHub the way GitHub's merge button does, then updates the repository to the new main, as the next workflow run's checkout would be.
+`When the release pull request is merged with …` merges it on GitHub the way GitHub's merge button does, then updates the scenario's repository to the new main, so later steps can name its commits.
 
 ## Running
 

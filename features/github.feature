@@ -1,11 +1,13 @@
 Feature: Releasing on GitHub
   With --github, release-bot works with GitHub the way release-please does.
-  It pushes the release branch and proposes it in a release pull request.
-  Merging that pull request is what releases it: the next run tags the merged release,
-  pushes the tags, and publishes a GitHub release of each, with its notes from the changelog.
+  It works through GitHub's API alone, so a workflow doesn't need to check the repository out.
+  It writes the release branch on GitHub, and proposes it in a release pull request.
+  GitHub signs the release commit, as release-bot runs with a bot's token.
+  Merging that pull request is what releases it: the next run tags the merged release on GitHub,
+  and publishes a GitHub release of each tag, with its notes from the changelog.
 
-  The repository in each scenario is the checkout a GitHub Actions workflow would have,
-  with a fake GitHub as its origin, and the token, repository and API URL in the environment.
+  Each scenario's repository is on a fake GitHub, and release-bot runs with the token,
+  repository and API URL in the environment, as a GitHub Actions workflow gives them.
   Commits in the git history are pushed to main on GitHub as they are made.
 
   Background:
@@ -46,10 +48,10 @@ Feature: Releasing on GitHub
     Then release-bot says:
       """
       Updated release-bot/release on release: app-a 1.3.0, app-b 0.5.0
-      Pushed release-bot/release
       Opened pull request #1: https://github.com/octo-org/widgets/pull/1
       """
-    And the release branch is pushed
+    And the release branch is on GitHub
+    And the release commit is signed by GitHub
     And the release pull request is open, titled "chore(release): app-a 1.3.0, app-b 0.5.0"
     And the release pull request says:
       """
@@ -83,10 +85,9 @@ Feature: Releasing on GitHub
     Then release-bot says:
       """
       Updated release-bot/release on release: app-a 2.0.0, app-b 0.5.0
-      Pushed release-bot/release
       Updated pull request #1: https://github.com/octo-org/widgets/pull/1
       """
-    And the release branch is pushed
+    And the release branch is on GitHub
     And the release pull request is open, titled "chore(release): app-a 2.0.0, app-b 0.5.0"
 
   Scenario: Running again changes nothing on GitHub
@@ -142,7 +143,7 @@ Feature: Releasing on GitHub
       """
     And nothing on GitHub changes
 
-  Scenario: A run that stopped after pushing the tags is finished by the next
+  Scenario: A run that stopped after tagging is finished by the next
     Given release-bot runs with --github
     And the release pull request is merged with a squash merge
     And release-bot runs

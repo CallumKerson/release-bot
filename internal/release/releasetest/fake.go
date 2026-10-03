@@ -24,8 +24,6 @@ var (
 	ErrTagExists = errors.New("tag already exists")
 	// ErrCheckedOut is returned when asked to rewrite the checked out branch.
 	ErrCheckedOut = errors.New("branch is checked out")
-	// ErrTagConflict is returned when the remote already has a tag on a different commit.
-	ErrTagConflict = errors.New("the remote has the tag on a different commit")
 )
 
 // Commit is a commit to build a repository from.
@@ -52,13 +50,11 @@ func (c *fakeCommit) parents() []string {
 	return []string{c.parent}
 }
 
-// Fake is an in-memory repository with one line of history on main, and a remote it pushes to.
+// Fake is an in-memory repository with one line of history on main, as a code host such as GitHub holds it.
 type Fake struct {
 	commits  map[string]*fakeCommit
 	branches map[string]string
 	tags     map[string]string
-	// remote maps the remote's refs to the commits they point to.
-	remote map[string]string
 }
 
 // NewFake builds a Fake whose main branch has history, oldest commit first.
@@ -67,7 +63,6 @@ func NewFake(history ...Commit) *Fake {
 		commits:  map[string]*fakeCommit{},
 		branches: map[string]string{},
 		tags:     map[string]string{},
-		remote:   map[string]string{},
 	}
 	for _, commit := range history {
 		files := map[string][]byte{}
@@ -235,39 +230,4 @@ func (f *Fake) WriteBranch(_ context.Context, branch, parent string, files map[s
 	commit = f.commit(base.sha, files, message)
 	f.branches[branch] = commit
 	return commit, true, nil
-}
-
-// Pushed returns the commit a ref, such as refs/tags/v1.0.0, points to on the remote, and false if it isn't there.
-func (f *Fake) Pushed(ref string) (string, bool) {
-	sha, ok := f.remote[ref]
-	return sha, ok
-}
-
-// PushTags pushes the tags the remote doesn't have yet.
-func (f *Fake) PushTags(_ context.Context, tags []string) error {
-	for _, tag := range tags {
-		local, ok := f.tags[tag]
-		if !ok {
-			return fmt.Errorf("%w: %s", ErrUnknownRevision, tag)
-		}
-		ref := "refs/tags/" + tag
-		if pushed, ok := f.remote[ref]; ok && pushed != local {
-			return fmt.Errorf("%w: %s", ErrTagConflict, tag)
-		}
-		f.remote[ref] = local
-	}
-	return nil
-}
-
-// PushBranch points the remote's branch at commit, unless it already points there.
-func (f *Fake) PushBranch(_ context.Context, branch, commit string) (changed bool, err error) {
-	if _, ok := f.commits[commit]; !ok {
-		return false, fmt.Errorf("%w: %s", ErrUnknownRevision, commit)
-	}
-	ref := "refs/heads/" + branch
-	if f.remote[ref] == commit {
-		return false, nil
-	}
-	f.remote[ref] = commit
-	return true, nil
 }

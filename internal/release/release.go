@@ -40,14 +40,6 @@ type Repo interface {
 	) (commit string, changed bool, err error)
 }
 
-// Remote is where a run's tags and release branch are pushed, so the code host can see them.
-type Remote interface {
-	// PushTags pushes the tags the remote doesn't have yet.
-	PushTags(ctx context.Context, tags []string) error
-	// PushBranch points the remote's branch at commit, replacing whatever it held, unless it already points there.
-	PushBranch(ctx context.Context, branch, commit string) (changed bool, err error)
-}
-
 // Tag is a package's current release and the tag that marks it.
 type Tag struct {
 	Package       string `json:"package"`

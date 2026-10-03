@@ -13,8 +13,8 @@ import (
 	"github.com/CallumKerson/release-bot/internal/release"
 )
 
-// ErrNotPushed is returned when opening a pull request from a branch the remote doesn't have.
-var ErrNotPushed = errors.New("branch is not pushed")
+// ErrNoBranch is returned when opening a pull request from a branch that doesn't exist.
+var ErrNoBranch = errors.New("no such branch")
 
 // PullRequest is a pull request on a FakeHost.
 type PullRequest struct {
@@ -31,7 +31,7 @@ type Release struct {
 	Notes string
 }
 
-// FakeHost is an in-memory release.Host over the remote of a Fake.
+// FakeHost is an in-memory release.Host for the repository a Fake holds.
 type FakeHost struct {
 	fake     *Fake
 	pulls    []*PullRequest
@@ -39,7 +39,7 @@ type FakeHost struct {
 	writes   int
 }
 
-// NewFakeHost returns a host for the fake's remote.
+// NewFakeHost returns a host for the fake's repository.
 func NewFakeHost(fake *Fake) *FakeHost {
 	return &FakeHost{fake: fake}
 }
@@ -73,8 +73,8 @@ func (h *FakeHost) EnsurePullRequest(
 	_ context.Context,
 	request *release.PullRequest,
 ) (*release.PullRequestResult, error) {
-	if _, ok := h.fake.Pushed("refs/heads/" + request.Branch); !ok {
-		return nil, fmt.Errorf("%w: %s", ErrNotPushed, request.Branch)
+	if _, ok := h.fake.Branch(request.Branch); !ok {
+		return nil, fmt.Errorf("%w: %s", ErrNoBranch, request.Branch)
 	}
 	for _, pull := range h.pulls {
 		if !pull.Open || pull.Branch != request.Branch {
@@ -104,18 +104,17 @@ func (h *FakeHost) EnsurePullRequest(
 	}, nil
 }
 
-// EnsureRelease publishes a release of the tag unless it has one. As on GitHub, an unpushed tag is created.
+// EnsureRelease publishes a release of the tag unless it has one. As on GitHub, a missing tag is created.
 func (h *FakeHost) EnsureRelease(_ context.Context, tag *release.Tag) (url string, created bool, err error) {
 	url = "https://example.test/releases/" + tag.Name
 	if slices.ContainsFunc(h.releases, func(r Release) bool { return r.Tag == tag.Name }) {
 		return url, false, nil
 	}
-	ref := "refs/tags/" + tag.Name
-	if _, ok := h.fake.remote[ref]; !ok {
+	if _, ok := h.fake.tags[tag.Name]; !ok {
 		if _, ok := h.fake.commits[tag.ReleaseCommit]; !ok {
 			return "", false, fmt.Errorf("%w: %s", ErrUnknownRevision, tag.ReleaseCommit)
 		}
-		h.fake.remote[ref] = tag.ReleaseCommit
+		h.fake.tags[tag.Name] = tag.ReleaseCommit
 	}
 	h.releases = append(h.releases, Release{Tag: tag.Name, Notes: tag.Notes})
 	h.writes++
@@ -126,13 +125,10 @@ func pullURL(number int) string {
 	return fmt.Sprintf("https://example.test/pull/%d", number)
 }
 
-// HostFixture is a repository with a remote, and the host that remote belongs to.
+// HostFixture is a host, and the repository on it.
 type HostFixture struct {
-	Repo   release.Repo
-	Remote release.Remote
-	Host   release.Host
-	// Pushed returns the commit a ref points to on the remote, and false if it isn't there.
-	Pushed func(ref string) (string, bool)
+	Repo release.Repo
+	Host release.Host
 	// Merge merges a pull request on the host.
 	Merge func(t *testing.T, number int)
 }
@@ -152,15 +148,13 @@ func testEnsurePullRequest(t *testing.T, fixture *HostFixture) {
 	ctx := t.Context()
 	head, err := fixture.Repo.Head(ctx)
 	require.NoError(t, err)
-	commit, _, err := fixture.Repo.WriteBranch(ctx, "release", head,
-		map[string][]byte{changelog: []byte("# Changelog\n")}, "chore(release): app 1.1.0")
-	require.NoError(t, err)
 
 	request := &release.PullRequest{Branch: "release", Title: "chore(release): app 1.1.0", Body: "## app 1.1.0"}
 	_, err = fixture.Host.EnsurePullRequest(ctx, request)
-	require.Error(t, err, "a branch that isn't pushed")
+	require.Error(t, err, "a branch that doesn't exist")
 
-	_, err = fixture.Remote.PushBranch(ctx, "release", commit)
+	_, _, err = fixture.Repo.WriteBranch(ctx, "release", head,
+		map[string][]byte{changelog: []byte("# Changelog\n")}, "chore(release): app 1.1.0")
 	require.NoError(t, err)
 	opened, err := fixture.Host.EnsurePullRequest(ctx, request)
 	require.NoError(t, err)
@@ -192,7 +186,6 @@ func testEnsureRelease(t *testing.T, fixture *HostFixture) {
 	ctx := t.Context()
 	log, err := fixture.Repo.Log(ctx, "", "main")
 	require.NoError(t, err)
-	require.NoError(t, fixture.Remote.PushTags(ctx, []string{firstTag}))
 
 	tag := &release.Tag{Package: appName, Version: "1.0.0", Name: firstTag, ReleaseCommit: log[0].SHA, Notes: "Notes"}
 	url, created, err := fixture.Host.EnsureRelease(ctx, tag)
@@ -209,7 +202,8 @@ func testEnsureRelease(t *testing.T, fixture *HostFixture) {
 	_, created, err = fixture.Host.EnsureRelease(ctx, unpushed)
 	require.NoError(t, err)
 	assert.True(t, created)
-	commit, found := fixture.Pushed("refs/tags/" + secondTag)
-	assert.True(t, found, "releasing a tag that isn't pushed creates it")
+	commit, found, err := fixture.Repo.TagCommit(ctx, secondTag)
+	require.NoError(t, err)
+	assert.True(t, found, "releasing a tag that doesn't exist creates it")
 	assert.Equal(t, log[1].SHA, commit, "on the release commit")
 }

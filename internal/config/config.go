@@ -29,8 +29,8 @@ const (
 	rootPath       = "."
 )
 
-// Paths searched for the config file, relative to the repository root.
-var searchPaths = []string{"release-bot.toml", filepath.Join(".config", "release-bot.toml")}
+// SearchPaths are where the config file is looked for, relative to the repository root, in order.
+var SearchPaths = []string{"release-bot.toml", ".config/release-bot.toml"}
 
 var (
 	// ErrInvalid is returned for configs that parse but don't make sense.
@@ -101,13 +101,13 @@ func Find(root, explicit string) (string, error) {
 	if explicit != "" {
 		return explicit, nil
 	}
-	for _, candidate := range searchPaths {
+	for _, candidate := range SearchPaths {
 		full := filepath.Join(root, candidate)
 		if _, err := os.Stat(full); err == nil {
 			return full, nil
 		}
 	}
-	return "", fmt.Errorf("%w in %s: create one of %s", ErrNotFound, root, strings.Join(searchPaths, " or "))
+	return "", fmt.Errorf("%w in %s: create one of %s", ErrNotFound, root, strings.Join(SearchPaths, " or "))
 }
 
 // Load reads and parses the config file at file.
