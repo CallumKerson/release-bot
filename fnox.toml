@@ -1,0 +1,10 @@
+default_provider = "1password"
+
+[providers.1password]
+type = "1password"
+vault = "Automation"
+
+# The GitHub App the end-to-end tests run as, installed on the test repository. See `mise run e2e`.
+[secrets]
+"RELEASE_BOT_E2E_APP_CLIENT_ID" = { provider = "1password", value = "release-bot-tester-github-app/client-id" }
+"RELEASE_BOT_E2E_APP_PRIVATE_KEY" = { provider = "1password", value = "release-bot-tester-github-app/private-key" }

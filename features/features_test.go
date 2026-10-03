@@ -36,7 +36,7 @@ func TestFeatures(t *testing.T) {
 	gitrepo.Isolate(t)
 	opts := godogOptions
 	opts.TestingT = t
-	suite := godog.TestSuite{Name: "release-bot", ScenarioInitializer: initializeScenario, Options: &opts}
+	suite := godog.TestSuite{Name: "release-bot", ScenarioInitializer: scenarios(newFakeGitHub), Options: &opts}
 	if suite.Run() != 0 {
 		t.Fatal("feature scenarios failed")
 	}
@@ -64,8 +64,9 @@ type world struct {
 
 	// env is the environment release-bot sees.
 	env map[string]string
-	// github is the scenario's fake GitHub, once the repository is on it.
-	github *gitHub
+	// newGitHub sets up a GitHub for the scenario, and github is the repository on it, once it is there.
+	newGitHub func(context.Context) (gitHub, error)
+	github    *onGitHub
 
 	// before is the repository as it was before the last command ran.
 	before snapshot
@@ -78,8 +79,17 @@ type snapshot struct {
 	tags               []string
 }
 
-func initializeScenario(scenario *godog.ScenarioContext) {
-	state := &world{labels: map[string]string{}, shas: map[string]string{}, env: map[string]string{}}
+// scenarios initialises each scenario, putting its repository on a GitHub made by newGitHub when it asks to be.
+func scenarios(newGitHub func(context.Context) (gitHub, error)) func(*godog.ScenarioContext) {
+	return func(scenario *godog.ScenarioContext) {
+		initializeScenario(scenario, newGitHub)
+	}
+}
+
+func initializeScenario(scenario *godog.ScenarioContext, newGitHub func(context.Context) (gitHub, error)) {
+	state := &world{
+		labels: map[string]string{}, shas: map[string]string{}, env: map[string]string{}, newGitHub: newGitHub,
+	}
 	scenario.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		dir, err := os.MkdirTemp("", "release-bot-feature-")
 		if err != nil {
@@ -521,6 +531,9 @@ func (w *world) readable(text string) string {
 	for sha, name := range w.shas {
 		text = strings.ReplaceAll(text, vcs.Short(sha), name)
 	}
+	if w.github != nil {
+		text = w.github.readable(text)
+	}
 	return strings.ReplaceAll(text, w.dir, "<repo>")
 }
 
@@ -537,8 +550,12 @@ func (w *world) write(path, content string) error {
 }
 
 func (w *world) git(ctx context.Context, stdin *strings.Reader, args ...string) (string, error) {
+	return git(ctx, w.dir, stdin, args...)
+}
+
+func git(ctx context.Context, dir string, stdin *strings.Reader, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = w.dir
+	cmd.Dir = dir
 	if stdin != nil {
 		cmd.Stdin = stdin
 	}
