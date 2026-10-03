@@ -87,7 +87,7 @@ func (r *Repo) Log(ctx context.Context, base, head string) ([]vcs.Commit, error)
 		revs = base + ".." + head
 	}
 	out, err := r.git(ctx, nil, nil, "-c", "core.quotePath=false", "log", "--topo-order", "--no-merges", "--no-renames",
-		"--name-only", "--format="+recordSep+"%H"+fieldSep+"%B"+fieldSep, revs, "--")
+		"--name-only", "--format="+recordSep+"%H"+fieldSep+"%P"+fieldSep+"%B"+fieldSep, revs, "--")
 	if err != nil {
 		return nil, err
 	}
@@ -96,12 +96,12 @@ func (r *Repo) Log(ctx context.Context, base, head string) ([]vcs.Commit, error)
 		if strings.TrimSpace(record) == "" {
 			continue
 		}
-		fields := strings.SplitN(record, fieldSep, 3)
-		if len(fields) != 3 {
+		fields := strings.SplitN(record, fieldSep, 4)
+		if len(fields) != 4 {
 			return nil, fmt.Errorf("%w: %q", errLogOutput, record)
 		}
-		commit := vcs.Commit{SHA: fields[0], Message: strings.TrimSpace(fields[1])}
-		for file := range strings.SplitSeq(fields[2], "\n") {
+		commit := vcs.Commit{SHA: fields[0], Parents: parents(fields[1]), Message: strings.TrimSpace(fields[2])}
+		for file := range strings.SplitSeq(fields[3], "\n") {
 			if file = strings.TrimSpace(file); file != "" {
 				commit.Files = append(commit.Files, file)
 			}
@@ -123,13 +123,27 @@ func (r *Repo) ReadFile(ctx context.Context, rev, path string) (content []byte, 
 	return content, true, nil
 }
 
-// FileHistory returns the commits reachable from rev that changed path, newest first.
-func (r *Repo) FileHistory(ctx context.Context, rev, path string) ([]string, error) {
-	out, err := r.git(ctx, nil, nil, "log", "--format=%H", rev, "--", path)
+// FileHistory returns the commits reachable from rev that changed path, newest first, with their parents.
+func (r *Repo) FileHistory(ctx context.Context, rev, path string) ([]vcs.Commit, error) {
+	out, err := r.git(ctx, nil, nil, "log", "--format=%H %P", rev, "--", path)
 	if err != nil {
 		return nil, err
 	}
-	return strings.Fields(out), nil
+	var commits []vcs.Commit
+	for line := range strings.Lines(out) {
+		if sha, rest, _ := strings.Cut(strings.TrimSpace(line), " "); sha != "" {
+			commits = append(commits, vcs.Commit{SHA: sha, Parents: parents(rest)})
+		}
+	}
+	return commits, nil
+}
+
+// parents splits git's %P, the space-separated parents of a commit, leaving a root commit's nil.
+func parents(field string) []string {
+	if ids := strings.Fields(field); len(ids) > 0 {
+		return ids
+	}
+	return nil
 }
 
 // CreateTag creates an annotated tag on commit.

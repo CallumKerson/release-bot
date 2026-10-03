@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strings"
 
 	"github.com/CallumKerson/release-bot/internal/vcs"
 )
@@ -43,6 +42,14 @@ type fakeCommit struct {
 	message string
 	tree    map[string][]byte
 	changed []string
+}
+
+// parents returns the commit's parent, or none for the first commit.
+func (c *fakeCommit) parents() []string {
+	if c.parent == "" {
+		return nil
+	}
+	return []string{c.parent}
 }
 
 // Fake is an in-memory repository with one line of history on main, and a remote it pushes to.
@@ -106,22 +113,15 @@ func (f *Fake) commit(parent string, files map[string][]byte, message string) st
 	return sha
 }
 
-// resolve finds the commit rev names: a commit ID, a branch or a tag, followed by a ^ for each parent to go back.
+// resolve finds the commit rev names: a commit ID, a branch or a tag.
 func (f *Fake) resolve(rev string) (*fakeCommit, bool) {
-	name := strings.TrimRight(rev, "^")
-	sha := name
-	if branch, ok := f.branches[name]; ok {
+	sha := rev
+	if branch, ok := f.branches[rev]; ok {
 		sha = branch
-	} else if tag, ok := f.tags[name]; ok {
+	} else if tag, ok := f.tags[rev]; ok {
 		sha = tag
 	}
 	commit, found := f.commits[sha]
-	for range len(rev) - len(name) {
-		if !found {
-			break
-		}
-		commit, found = f.commits[commit.parent]
-	}
 	return commit, found
 }
 
@@ -168,7 +168,9 @@ func (f *Fake) Log(_ context.Context, base, head string) ([]vcs.Commit, error) {
 	var out []vcs.Commit
 	for _, commit := range commits {
 		if !slices.Contains(excluded, commit) {
-			out = append(out, vcs.Commit{SHA: commit.sha, Message: commit.message, Files: commit.changed})
+			out = append(out, vcs.Commit{
+				SHA: commit.sha, Message: commit.message, Parents: commit.parents(), Files: commit.changed,
+			})
 		}
 	}
 	return out, nil
@@ -184,16 +186,16 @@ func (f *Fake) ReadFile(_ context.Context, rev, path string) (content []byte, ok
 	return content, ok, nil
 }
 
-// FileHistory returns the commits reachable from rev that changed path, newest first.
-func (f *Fake) FileHistory(_ context.Context, rev, path string) ([]string, error) {
+// FileHistory returns the commits reachable from rev that changed path, newest first, with their parents.
+func (f *Fake) FileHistory(_ context.Context, rev, path string) ([]vcs.Commit, error) {
 	commits, err := f.ancestry(rev)
 	if err != nil {
 		return nil, err
 	}
-	var out []string
+	var out []vcs.Commit
 	for _, commit := range commits {
 		if slices.Contains(commit.changed, path) {
-			out = append(out, commit.sha)
+			out = append(out, vcs.Commit{SHA: commit.sha, Parents: commit.parents()})
 		}
 	}
 	return out, nil

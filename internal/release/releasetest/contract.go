@@ -59,6 +59,9 @@ func testLog(t *testing.T, repo release.Repo, log []vcs.Commit) {
 	assert.Equal(t, "feat(app): add a thing\n\nWith a body.", log[1].Message)
 	assert.Equal(t, []string{appMain}, log[1].Files)
 	assert.ElementsMatch(t, []string{readme, appMain}, log[2].Files)
+	assert.Equal(t, []string{log[1].SHA}, log[0].Parents)
+	assert.Equal(t, []string{log[2].SHA}, log[1].Parents)
+	assert.Empty(t, log[2].Parents, "the first commit")
 
 	since, err := repo.Log(t.Context(), log[2].SHA, log[0].SHA)
 	require.NoError(t, err)
@@ -73,25 +76,21 @@ func testReadFile(t *testing.T, repo release.Repo, log []vcs.Commit) {
 	assert.True(t, found)
 	assert.Equal(t, "v2\n", string(content))
 
-	content, found, err = repo.ReadFile(t.Context(), head+"^^", appMain)
+	content, found, err = repo.ReadFile(t.Context(), log[2].SHA, appMain)
 	require.NoError(t, err)
-	assert.True(t, found, "a parent's parent")
+	assert.True(t, found, "an older commit")
 	assert.Equal(t, "v1\n", string(content))
 
 	_, found, err = repo.ReadFile(t.Context(), head, "missing.txt")
 	require.NoError(t, err)
 	assert.False(t, found, "a missing file")
-
-	_, found, err = repo.ReadFile(t.Context(), head+"^^^", readme)
-	require.NoError(t, err)
-	assert.False(t, found, "the parent of the first commit")
 }
 
 func testFileHistory(t *testing.T, repo release.Repo, log []vcs.Commit) {
 	t.Helper()
 	changes, err := repo.FileHistory(t.Context(), log[0].SHA, appMain)
 	require.NoError(t, err)
-	assert.Equal(t, []string{log[1].SHA, log[2].SHA}, changes)
+	assert.Equal(t, []vcs.Commit{{SHA: log[1].SHA, Parents: []string{log[2].SHA}}, {SHA: log[2].SHA}}, changes)
 }
 
 func testTags(t *testing.T, repo release.Repo, log []vcs.Commit) {
