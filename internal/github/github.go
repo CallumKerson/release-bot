@@ -1,4 +1,5 @@
-// Package github opens release pull requests and publishes releases on GitHub, through its REST API.
+// Package github releases on GitHub through its REST API: it reads and writes the repository's git data,
+// opens release pull requests, and publishes releases. Nothing needs a checkout.
 package github
 
 import (
@@ -30,14 +31,19 @@ type Options struct {
 	Repository string
 	// APIURL is the base URL of the REST API. Empty means api.github.com.
 	APIURL string
+	// Branch is the branch releases are made from, and release pull requests merge into.
+	// Empty means the repository's default branch.
+	Branch string
 }
 
 // Host is a GitHub repository.
 type Host struct {
 	client      *gogithub.Client
 	owner, name string
-	// base is the repository's default branch, which release pull requests merge into, once it is known.
-	base string
+	// target is the branch releases are made from, and release pull requests merge into, once it is known.
+	target string
+	// head is the commit target pointed to when the run first read it.
+	head string
 }
 
 // New returns the GitHub repository opts describe.
@@ -57,16 +63,16 @@ func New(opts Options) (*Host, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrSettings, err)
 	}
-	return &Host{client: client, owner: owner, name: name}, nil
+	return &Host{client: client, owner: owner, name: name, target: opts.Branch}, nil
 }
 
-// EnsurePullRequest opens a pull request from the branch into the default branch,
+// EnsurePullRequest opens a pull request from the branch into the target branch,
 // or brings the title and body of the open one up to date.
 func (h *Host) EnsurePullRequest(
 	ctx context.Context,
 	request *release.PullRequest,
 ) (*release.PullRequestResult, error) {
-	base, err := h.defaultBranch(ctx)
+	base, err := h.targetBranch(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -118,16 +124,17 @@ func (h *Host) EnsureRelease(ctx context.Context, tag *release.Tag) (url string,
 	return published.GetHTMLURL(), true, nil
 }
 
-func (h *Host) defaultBranch(ctx context.Context) (string, error) {
-	if h.base != "" {
-		return h.base, nil
+// targetBranch returns the branch releases are made from: the one Options named, or the default branch.
+func (h *Host) targetBranch(ctx context.Context) (string, error) {
+	if h.target != "" {
+		return h.target, nil
 	}
 	repo, _, err := h.client.Repositories.Get(ctx, h.owner, h.name)
 	if err != nil {
 		return "", fmt.Errorf("reading %s/%s: %w", h.owner, h.name, err)
 	}
-	h.base = repo.GetDefaultBranch()
-	return h.base, nil
+	h.target = repo.GetDefaultBranch()
+	return h.target, nil
 }
 
 // openPullRequest returns the open pull request from branch into base, or nil if there isn't one.
