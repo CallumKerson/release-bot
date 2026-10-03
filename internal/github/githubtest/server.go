@@ -79,6 +79,8 @@ type Server struct {
 	requests   []Request
 	unexpected []string
 	nextID     int64
+	// signed are the commits GitHub signed.
+	signed map[string]bool
 }
 
 // New starts a fake GitHub, stopped when the test ends. The test fails if a request was one the fake doesn't serve.
@@ -102,7 +104,9 @@ func Start(opts Options) (*Server, error) {
 	if !ok {
 		return nil, fmt.Errorf("%w: repository %q isn't owner/name", ErrUnexpected, opts.Repository)
 	}
-	fake := &Server{owner: owner, name: name, origin: opts.Origin, maxPage: opts.MaxPageSize}
+	fake := &Server{
+		owner: owner, name: name, origin: opts.Origin, maxPage: opts.MaxPageSize, signed: map[string]bool{},
+	}
 
 	mux := http.NewServeMux()
 	repo := "/repos/{owner}/{repo}"
@@ -112,6 +116,19 @@ func Start(opts Options) (*Server, error) {
 	mux.HandleFunc("PATCH "+repo+"/pulls/{number}", fake.editPull)
 	mux.HandleFunc("GET "+repo+"/releases/tags/{tag}", fake.getReleaseByTag)
 	mux.HandleFunc("POST "+repo+"/releases", fake.createRelease)
+	mux.HandleFunc("GET "+repo+"/git/ref/{ref...}", fake.getRef)
+	mux.HandleFunc("POST "+repo+"/git/refs", fake.createRef)
+	mux.HandleFunc("PATCH "+repo+"/git/refs/{ref...}", fake.updateRef)
+	mux.HandleFunc("GET "+repo+"/git/tags/{sha}", fake.getTag)
+	mux.HandleFunc("POST "+repo+"/git/tags", fake.createTag)
+	mux.HandleFunc("GET "+repo+"/git/commits/{sha}", fake.getGitCommit)
+	mux.HandleFunc("POST "+repo+"/git/commits", fake.createGitCommit)
+	mux.HandleFunc("POST "+repo+"/git/trees", fake.createTree)
+	mux.HandleFunc("GET "+repo+"/git/blobs/{sha}", fake.getBlob)
+	mux.HandleFunc("GET "+repo+"/contents/{path...}", fake.getContents)
+	mux.HandleFunc("GET "+repo+"/commits", fake.listCommits)
+	mux.HandleFunc("GET "+repo+"/commits/{ref...}", fake.getCommit)
+	mux.HandleFunc("GET "+repo+"/compare/{basehead...}", fake.compareCommits)
 	mux.HandleFunc("/", fake.notImplemented)
 
 	fake.server = httptest.NewServer(fake.authenticate(mux))
@@ -253,7 +270,7 @@ func (s *Server) listPulls(out http.ResponseWriter, req *http.Request) {
 		}
 	}
 	s.mu.Unlock()
-	writeJSON(out, http.StatusOK, s.paginate(out, req, matched))
+	writeJSON(out, http.StatusOK, paginate(s, out, req, matched, defaultPageSize))
 }
 
 // https://docs.github.com/rest/pulls/pulls#create-a-pull-request
@@ -487,17 +504,13 @@ func (s *Server) pull(number string) *github.PullRequest {
 }
 
 // paginate returns the page of items a request asks for, and links the other pages as GitHub does.
-func (s *Server) paginate(
-	out http.ResponseWriter,
-	req *http.Request,
-	items []*github.PullRequest,
-) []*github.PullRequest {
-	size := defaultPageSize
+// Pages hold size items unless the request asks for fewer, or up to 100 more.
+func paginate[T any](server *Server, out http.ResponseWriter, req *http.Request, items []T, size int) []T {
 	if n, err := strconv.Atoi(req.URL.Query().Get("per_page")); err == nil && n > 0 {
-		size = min(n, 100)
+		size = min(n, max(size, 100))
 	}
-	if s.maxPage > 0 {
-		size = min(size, s.maxPage)
+	if server.maxPage > 0 {
+		size = min(size, server.maxPage)
 	}
 	page := 1
 	if n, err := strconv.Atoi(req.URL.Query().Get("page")); err == nil && n > 0 {
@@ -508,7 +521,7 @@ func (s *Server) paginate(
 		query := req.URL.Query()
 		query.Set("page", strconv.Itoa(n))
 		query.Set("per_page", strconv.Itoa(size))
-		return fmt.Sprintf(`<%s%s?%s>; rel=%q`, strings.TrimSuffix(s.URL, "/"), req.URL.Path, query.Encode(), rel)
+		return fmt.Sprintf(`<%s%s?%s>; rel=%q`, strings.TrimSuffix(server.URL, "/"), req.URL.Path, query.Encode(), rel)
 	}
 	var links []string
 	if page < last {
