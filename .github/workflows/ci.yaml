@@ -39,7 +39,9 @@ jobs:
           check_name: lint results
           # A fork's pull request can't create check runs, so it gets annotations alone
           annotate_only: ${{ github.event.pull_request.head.repo.fork == true }}
-          skip_success_summary: true
+          # List each failed or skipped test, not only the counts
+          detailed_summary: true
+          include_time_in_summary: true
       - name: Report test results
         if: ${{ !cancelled() }}
         uses: mikepenz/action-junit-report@a9170d5795813c01ab4901ffb045b52bab4ab09d # v6.5.0
@@ -48,7 +50,9 @@ jobs:
           check_name: test results
           annotate_only: ${{ github.event.pull_request.head.repo.fork == true }}
           require_tests: true
-          skip_success_summary: true
+          # List each failed or skipped test, not only the counts
+          detailed_summary: true
+          include_time_in_summary: true
 
   # The GitHub scenarios against the real CallumKerson/release-bot-test-repo, which each scenario resets.
   # They take minutes, so they only run once everything else, including the same scenarios on the fake, has passed.
@@ -88,7 +92,7 @@ jobs:
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: go gotestsum
-      - run: gotestsum --format github-actions --junitfile test-results/e2e.xml -- ./features -run TestEndToEnd -count=1
+      - run: gotestsum --format github-actions --junitfile test-results/e2e.xml -- -tags e2e ./features -run TestEndToEnd -count=1
         env:
           RELEASE_BOT_E2E_REPOSITORY: CallumKerson/release-bot-test-repo
           RELEASE_BOT_E2E_TOKEN: ${{ steps.app.outputs.token }}
@@ -99,4 +103,6 @@ jobs:
           report_paths: test-results/e2e.xml
           check_name: e2e results
           require_tests: true
-          skip_success_summary: true
+          # List each failed or skipped test, not only the counts
+          detailed_summary: true
+          include_time_in_summary: true
