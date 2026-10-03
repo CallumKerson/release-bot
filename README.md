@@ -18,18 +18,20 @@ With `--github` it also opens the release pull request and publishes GitHub rele
    Merging that branch is how a release happens.
 3. **Nothing**, when no commit since the last release is releasable.
 
-It never touches the working tree, the index or the checked-out branch.
+Locally, it never touches the working tree, the index or the checked-out branch.
 
 `release-bot plan` explains what `run` would do and why, commit by commit, without changing anything.
 Both commands take `--json` for machine-readable output.
 
 ## On GitHub
 
-`release-bot run --github` runs in a GitHub Actions checkout.
-After doing its local work, it:
+`release-bot run --github` works on the GitHub repository through its API alone, as release-please does, so the workflow doesn't check the repository out.
+It reads the config, the manifest and the history from the target branch, then:
 
-1. pushes the tags, and publishes a GitHub release of each current version that doesn't have one, with that version's changelog notes;
-2. pushes the release branch, and opens the release pull request into the default branch, or updates the open one.
+1. creates the tags of merged releases, and publishes a GitHub release of each current version that doesn't have one, with that version's changelog notes;
+2. writes the release branch, and opens the release pull request into the target branch, or updates the open one.
+
+The release commit is made with no author or committer, so with a bot's token, such as the workflow's `GITHUB_TOKEN` or a GitHub App's, GitHub signs it and it shows as Verified.
 
 Merging the release pull request is how a release happens, and the next run tags and publishes it.
 Runs are idempotent on GitHub too, and a run that stops part way through is finished by the next.
@@ -50,17 +52,18 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7 # no checkout: release-bot works through the API
         with:
-          fetch-depth: 0 # release-bot reads the history and tags
+          go-version: stable
       - run: go run github.com/CallumKerson/release-bot/cmd/release-bot@latest run --github
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-The token comes from `GITHUB_TOKEN`.
+The token comes from `GITHUB_TOKEN`, and needs `contents: write` for the tags and the release branch, and `pull-requests: write` for the release pull request.
 The repository and API URL come from `GITHUB_REPOSITORY` and `GITHUB_API_URL`, which Actions sets, or from `--github-repo` and `--github-api-url`.
-Pushes go to the `origin` remote, or the one `--remote` names, using the credentials `actions/checkout` leaves behind.
+Releases are made from the repository's default branch, or the one `--target-branch` names.
+`release-bot plan --github` explains what a run would do, reading from GitHub in the same way.
 
 With the workflow's own `GITHUB_TOKEN`, the repository must allow GitHub Actions to create pull requests, under Settings → Actions → General.
 GitHub doesn't run workflows for pull requests that token opens, so checks won't run on the release pull request.
