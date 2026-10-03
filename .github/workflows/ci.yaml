@@ -44,6 +44,8 @@ jobs:
           list-suites: all
           list-tests: all
           fail-on-error: false
+          # A check run, with annotations on failures, rather than only a job summary
+          use-actions-summary: false
       - name: Report test results
         # A fork's pull request can't create check runs
         if: ${{ !cancelled() && !github.event.pull_request.head.repo.fork }}
@@ -56,6 +58,8 @@ jobs:
           list-suites: all
           list-tests: failed
           fail-on-error: false
+          # A check run, with annotations on failures, rather than only a job summary
+          use-actions-summary: false
 
   # The GitHub scenarios against the real CallumKerson/release-bot-test-repo, which each scenario resets.
   # They take minutes, so they only run once everything else, including the same scenarios on the fake, has passed.
@@ -112,3 +116,5 @@ jobs:
           list-suites: all
           list-tests: failed
           fail-on-error: false
+          # A check run, with annotations on failures, rather than only a job summary
+          use-actions-summary: false
