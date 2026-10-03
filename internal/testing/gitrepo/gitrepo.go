@@ -10,6 +10,8 @@ import (
 )
 
 // isolatedConfig replaces the user's global git config, so signing, hooks and aliases can't affect tests.
+// Automatic maintenance is off, so no git process left running in the background after a commit or push
+// writes into a repository while the test is removing it.
 const isolatedConfig = `[user]
 	name = Test User
 	email = test@example.com
@@ -21,6 +23,12 @@ const isolatedConfig = `[user]
 	gpgSign = false
 [merge]
 	ff = true
+[maintenance]
+	auto = false
+[gc]
+	auto = 0
+[receive]
+	autogc = false
 `
 
 // Repo is a temporary git repository.
