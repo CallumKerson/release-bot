@@ -87,7 +87,7 @@ With `--github` it is the GitHub repository, read and written through the API al
   `features/github.feature` puts the repository on a `githubtest` fake as its origin, with the environment a workflow provides, and runs release-bot from an empty directory
 - `mise run e2e` runs `features/github.feature` against the real `CallumKerson/release-bot-test-repo`, which each scenario resets, as a GitHub App whose credentials fnox reads from 1Password (`fnox.toml`).
   The steps reach GitHub through the `gitHub` interface in `features/github_test.go`, implemented by `fake_github_test.go` and `real_github_test.go`, so a new GitHub step needs both.
-  It isn't part of `mise run test` or CI; run it after changing how release-bot uses GitHub
+  It isn't part of `mise run test`; on CI it is the `e2e` job in `.github/workflows/e2e.yaml`, which queues so only one job uses the test repository at a time
 - Git tests are isolated from the user's git config by `internal/testing/gitrepo.Isolate`
 
 ## Import Organization

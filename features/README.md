@@ -81,6 +81,9 @@ It runs as a GitHub App installed on the repository, because GitHub only signs r
 The repository's name and pull request numbers are shown as the fake's, so the scenarios read the same in both modes.
 Steps that read GitHub's lists retry for a few seconds, as a real GitHub can take a moment to list what release-bot just did.
 
+On CI, the `e2e` workflow runs them on every pull request and on main, as the same GitHub App, with its credentials in the `e2e` environment.
+There is only one test repository, so the job waits its turn in a queue for it, and a new push to a pull request cancels that pull request's earlier run.
+
 ```sh
 mise run e2e                                 # every GitHub scenario
 mise run e2e -- -v -godog.format=pretty      # print each step as it runs
