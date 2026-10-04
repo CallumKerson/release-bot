@@ -18,11 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
-      checks: write # to report the test results
+      statuses: write # to report the test results
     env:
-      LINT_JUNITFILE: test-results/lint.xml
-      GOTESTSUM_JSONFILE: test-results/tests.json
+      LINT_JUNITFILE: test-results/lint.junit.xml
+      GOTESTSUM_JSONFILE: test-results/test.gotest.json
       GOTESTSUM_FORMAT: github-actions
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,51 +31,9 @@ jobs:
       - name: Install tooling
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - run: mkdir -p test-results && mise run ci
-      - name: Report lint results
-        id: lint-report
-        # A fork's pull request can't create check runs
-        if: ${{ !cancelled() && !github.event.pull_request.head.repo.fork }}
-        uses: dorny/test-reporter@e432d9eb1656cd7e1b3800a1e9c5d2fb8182f5ee # v3.1.0
-        with:
-          name: lint results
-          path: test-results/lint.xml
-          reporter: java-junit
-          # Every linter, as there are only a few; the step above already fails the job
-          list-suites: all
-          list-tests: all
-          fail-on-error: false
-          # A check run, with annotations on failures, rather than only a job summary
-          use-actions-summary: false
-      - name: Report test results
-        id: test-report
-        # A fork's pull request can't create check runs
-        if: ${{ !cancelled() && !github.event.pull_request.head.repo.fork }}
-        uses: dorny/test-reporter@e432d9eb1656cd7e1b3800a1e9c5d2fb8182f5ee # v3.1.0
-        with:
-          name: test results
-          path: test-results/tests.json
-          reporter: golang-json
-          # Every suite with its counts, and the tests that failed; the step above already fails the job
-          list-suites: all
-          list-tests: failed
-          fail-on-error: false
-          # A check run, with annotations on failures, rather than only a job summary
-          use-actions-summary: false
-      # dorny writes a check run or a job summary, not both, so the check runs' reports are copied into the summary
-      - name: Summarise lint and test results
-        if: ${{ !cancelled() && !github.event.pull_request.head.repo.fork }}
-        env:
-          LINT_REPORT: ${{ steps.lint-report.outputs.summary_file }}
-          TEST_REPORT: ${{ steps.test-report.outputs.summary_file }}
-        run: |
-          for report in "lint results:$LINT_REPORT" "test results:$TEST_REPORT"; do
-            if [ -f "${report#*:}" ]; then
-              printf '## %s\n\n' "${report%%:*}" >> "$GITHUB_STEP_SUMMARY"
-              cat "${report#*:}" >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "::warning::No ${report%%:*} report to summarise"
-            fi
-          done
+      - name: Report lint and test results
+        if: ${{ !cancelled() }}
+        uses: CallumKerson/test-reports-action@a4d5c4b4345ee9ddb62623a091af0bd90e322094 # v0.2.1
 
   # The GitHub scenarios against the real CallumKerson/release-bot-test-repo, which each scenario resets.
   # They take minutes, so they only run once everything else, including the same scenarios on the fake, has passed.
@@ -99,8 +56,7 @@ jobs:
       deployment: false
     permissions:
       contents: read
-      actions: read
-      checks: write # to report the test results
+      statuses: write # to report the test results
     steps:
       - name: Get a token for the GitHub App
         id: app
@@ -117,33 +73,10 @@ jobs:
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: go gotestsum
-      - run: gotestsum --format github-actions --jsonfile test-results/e2e.json -- -tags e2e ./features -run TestEndToEnd -count=1
+      - run: gotestsum --format github-actions --jsonfile test-results/e2e.gotest.json -- -tags e2e ./features -run TestEndToEnd -count=1
         env:
           RELEASE_BOT_E2E_REPOSITORY: CallumKerson/release-bot-test-repo
           RELEASE_BOT_E2E_TOKEN: ${{ steps.app.outputs.token }}
       - name: Report end-to-end results
-        id: e2e-report
-        # A fork's pull request can't create check runs
-        if: ${{ !cancelled() && !github.event.pull_request.head.repo.fork }}
-        uses: dorny/test-reporter@e432d9eb1656cd7e1b3800a1e9c5d2fb8182f5ee # v3.1.0
-        with:
-          name: e2e results
-          path: test-results/e2e.json
-          reporter: golang-json
-          # Every suite with its counts, and the tests that failed; the step above already fails the job
-          list-suites: all
-          list-tests: failed
-          fail-on-error: false
-          # A check run, with annotations on failures, rather than only a job summary
-          use-actions-summary: false
-      - name: Summarise end-to-end results
         if: ${{ !cancelled() }}
-        env:
-          REPORT: ${{ steps.e2e-report.outputs.summary_file }}
-        run: |
-          if [ -f "$REPORT" ]; then
-            printf '## e2e results\n\n' >> "$GITHUB_STEP_SUMMARY"
-            cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "::warning::No e2e results report to summarise"
-          fi
+        uses: CallumKerson/test-reports-action@a4d5c4b4345ee9ddb62623a091af0bd90e322094 # v0.2.1
