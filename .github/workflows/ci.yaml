@@ -67,11 +67,11 @@ jobs:
           private-key: ${{ secrets.E2E_APP_PRIVATE_KEY }}
           owner: CallumKerson
           repositories: release-bot-test-repo
-          # Tags, the release branch and releases, its pull request, and the
-          # tests read issues to check what release-bot did
+          # Tags, the release branch and releases, and its pull request. A
+          # scenario's history changes a workflow file, which needs workflows
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: read
+          permission-workflows: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
