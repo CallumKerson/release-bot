@@ -37,37 +37,31 @@ specifiers = ["2.3.0"]
 checksum = "sha256:79d492a53a053a035d5b7b83b2e351207a75dd149cd8d37ce941dd46b0d555da"
 url = "https://github.com/aubepkg/aube/releases/download/v2.3.0/aube-v2.3.0-aarch64-unknown-linux-gnu.tar.gz"
 signer = "sigstore-oidc:https://github.com/aubepkg/aube/.github/workflows/release-plz.yml"
-repository_ids = { repository = "1214542327", owner = "324215402" }
 
 [tools.aube."platforms.linux-arm64-musl"]
 checksum = "sha256:97827683411004bbde9a53b2ff7f6b5f83c011a00a83def555115fd1a8526b85"
 url = "https://github.com/aubepkg/aube/releases/download/v2.3.0/aube-v2.3.0-aarch64-unknown-linux-musl.tar.gz"
 signer = "sigstore-oidc:https://github.com/aubepkg/aube/.github/workflows/release-plz.yml"
-repository_ids = { repository = "1214542327", owner = "324215402" }
 
 [tools.aube."platforms.linux-x64"]
 checksum = "sha256:250a7e2cf657e5e42f4fcce3443fa06ce457863fbbd4d8ccb7cfeb16a345b84d"
 url = "https://github.com/aubepkg/aube/releases/download/v2.3.0/aube-v2.3.0-x86_64-unknown-linux-gnu.tar.gz"
 signer = "sigstore-oidc:https://github.com/aubepkg/aube/.github/workflows/release-plz.yml"
-repository_ids = { repository = "1214542327", owner = "324215402" }
 
 [tools.aube."platforms.linux-x64-musl"]
 checksum = "sha256:d70968db310cd48975a45d2fe26c0e43fc1f8a8f97b647dfe4d02166183c6aa1"
 url = "https://github.com/aubepkg/aube/releases/download/v2.3.0/aube-v2.3.0-x86_64-unknown-linux-musl.tar.gz"
 signer = "sigstore-oidc:https://github.com/aubepkg/aube/.github/workflows/release-plz.yml"
-repository_ids = { repository = "1214542327", owner = "324215402" }
 
 [tools.aube."platforms.macos-arm64"]
 checksum = "sha256:717638c2fb87e3230d84c548ee9509f3dd880966744702c3e0d0345f1937c9b1"
 url = "https://github.com/aubepkg/aube/releases/download/v2.3.0/aube-v2.3.0-aarch64-apple-darwin.tar.gz"
 signer = "sigstore-oidc:https://github.com/aubepkg/aube/.github/workflows/release-plz.yml"
-repository_ids = { repository = "1214542327", owner = "324215402" }
 
 [tools.aube."platforms.windows-x64"]
 checksum = "sha256:a6b88d0ea8e364619adeb7b280fa2594e69fabe7362087ba0219113ba6af1e7e"
 url = "https://github.com/aubepkg/aube/releases/download/v2.3.0/aube-v2.3.0-x86_64-pc-windows-msvc.zip"
 signer = "sigstore-oidc:https://github.com/aubepkg/aube/.github/workflows/release-plz.yml"
-repository_ids = { repository = "1214542327", owner = "324215402" }
 
 [[tools.fnox]]
 version = "1.36.0"
@@ -78,43 +72,36 @@ specifiers = ["1.36.0"]
 checksum = "sha256:a479fc6cdf52db7ec5fab8027e62debbbe7ee18f2829bcdcc4766c9dc3ef123e"
 url = "https://github.com/jdx/fnox/releases/download/v1.36.0/fnox-aarch64-unknown-linux-gnu.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/fnox/.github/workflows/release.yml"
-repository_ids = { repository = "1078762196", owner = "216188" }
 
 [tools.fnox."platforms.linux-arm64-musl"]
 checksum = "sha256:1d7f21441c6dfb23fe9e27c4eed98d821c8e7f8587a7040c8f7471c79c3ed76f"
 url = "https://github.com/jdx/fnox/releases/download/v1.36.0/fnox-aarch64-unknown-linux-musl.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/fnox/.github/workflows/release.yml"
-repository_ids = { repository = "1078762196", owner = "216188" }
 
 [tools.fnox."platforms.linux-x64"]
 checksum = "sha256:9c4f4dd2ae9b704016798eef18e74fecb61f954cabb8ec4b97f848332954463d"
 url = "https://github.com/jdx/fnox/releases/download/v1.36.0/fnox-x86_64-unknown-linux-gnu.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/fnox/.github/workflows/release.yml"
-repository_ids = { repository = "1078762196", owner = "216188" }
 
 [tools.fnox."platforms.linux-x64-musl"]
 checksum = "sha256:4cc3b4e82d6be720078f723280a8cb918429c555aa54232be245b79440869f99"
 url = "https://github.com/jdx/fnox/releases/download/v1.36.0/fnox-x86_64-unknown-linux-musl.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/fnox/.github/workflows/release.yml"
-repository_ids = { repository = "1078762196", owner = "216188" }
 
 [tools.fnox."platforms.macos-arm64"]
 checksum = "sha256:b1de28349089d62b24518f1a6103005f9f3c82aaf5ca7872e65bf3fc349e4166"
 url = "https://github.com/jdx/fnox/releases/download/v1.36.0/fnox-aarch64-apple-darwin.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/fnox/.github/workflows/release.yml"
-repository_ids = { repository = "1078762196", owner = "216188" }
 
 [tools.fnox."platforms.macos-x64"]
 checksum = "sha256:7b380fd18e802da6246485f64289b66d121c2b42e1df8b017015d07be32ad9b5"
 url = "https://github.com/jdx/fnox/releases/download/v1.36.0/fnox-x86_64-apple-darwin.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/fnox/.github/workflows/release.yml"
-repository_ids = { repository = "1078762196", owner = "216188" }
 
 [tools.fnox."platforms.windows-x64"]
 checksum = "sha256:49f74e04d4700ced13842ea49ae23bfeac4dd75dede35e3784c704895bddcf9a"
 url = "https://github.com/jdx/fnox/releases/download/v1.36.0/fnox-x86_64-pc-windows-msvc.zip"
 signer = "sigstore-oidc:https://github.com/jdx/fnox/.github/workflows/release.yml"
-repository_ids = { repository = "1078762196", owner = "216188" }
 
 [[tools."github:golangci/golangci-lint"]]
 version = "2.14.0"
@@ -237,45 +224,86 @@ url = "https://github.com/gotestyourself/gotestsum/releases/download/v1.13.0/got
 url_api = "https://api.github.com/repos/gotestyourself/gotestsum/releases/assets/291996823"
 
 [[tools.hk]]
-version = "2.4.0"
+version = "2.7.0"
 backend = "packslip:github.com/jdx/hk"
-specifiers = ["2.4.0"]
+specifiers = ["2.7.0"]
 
 [tools.hk."platforms.linux-arm64"]
-checksum = "sha256:836235bd8aa06f25e7ff28591b32efb5297abe55366e912095636a49ffe4d363"
-url = "https://github.com/jdx/hk/releases/download/v2.4.0/hk-aarch64-unknown-linux-gnu.tar.gz"
+checksum = "sha256:a64c8cead6f9a47e6bf4d639122ca3eeba60480763076330ba230a8cb7821520"
+url = "https://github.com/jdx/hk/releases/download/v2.7.0/hk-aarch64-unknown-linux-gnu.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/hk/.github/workflows/release.yml"
-repository_ids = { repository = "922514152", owner = "216188" }
 
 [tools.hk."platforms.linux-arm64-musl"]
-checksum = "sha256:ad5c5a556e0a505d9a3441868217976bd4ae610e1364e93516993b9717d9ef28"
-url = "https://github.com/jdx/hk/releases/download/v2.4.0/hk-aarch64-unknown-linux-musl.tar.gz"
+checksum = "sha256:c8fc86be772051e8d80635ef2f755312f3194e2b6758c5b56346ac30cf525f70"
+url = "https://github.com/jdx/hk/releases/download/v2.7.0/hk-aarch64-unknown-linux-musl.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/hk/.github/workflows/release.yml"
-repository_ids = { repository = "922514152", owner = "216188" }
 
 [tools.hk."platforms.linux-x64"]
-checksum = "sha256:6efabe30aeabc4611a42ce6cf0fd46b9a19478e2cfd9acfd1bd93998736f3153"
-url = "https://github.com/jdx/hk/releases/download/v2.4.0/hk-x86_64-unknown-linux-gnu.tar.gz"
+checksum = "sha256:2d5819ee2bc3e5b424d90fb05928c05297bfa4d36490628b075b8f8afe14b7b1"
+url = "https://github.com/jdx/hk/releases/download/v2.7.0/hk-x86_64-unknown-linux-gnu.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/hk/.github/workflows/release.yml"
-repository_ids = { repository = "922514152", owner = "216188" }
 
 [tools.hk."platforms.linux-x64-musl"]
-checksum = "sha256:f34598671ca40be5c308324a60ef30b736dbbbf4259dfb511abd79009ee4de2a"
-url = "https://github.com/jdx/hk/releases/download/v2.4.0/hk-x86_64-unknown-linux-musl.tar.gz"
+checksum = "sha256:84e3b841f03fb82e6d3c59447bf91044d3352928b69125a5de8ba49febc2f5f1"
+url = "https://github.com/jdx/hk/releases/download/v2.7.0/hk-x86_64-unknown-linux-musl.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/hk/.github/workflows/release.yml"
-repository_ids = { repository = "922514152", owner = "216188" }
 
 [tools.hk."platforms.macos-arm64"]
-checksum = "sha256:6e1c970b9de7ab4ee52c85869b2ea9cfe8769d25a0fe9536062e0ba62366ec59"
-url = "https://github.com/jdx/hk/releases/download/v2.4.0/hk-aarch64-apple-darwin.tar.gz"
+checksum = "sha256:3b98dd45e493a421de5b327c87b3e0fdfac39383e11b6a2b48b43bbc5a9ce0d6"
+url = "https://github.com/jdx/hk/releases/download/v2.7.0/hk-aarch64-apple-darwin.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/hk/.github/workflows/release.yml"
-repository_ids = { repository = "922514152", owner = "216188" }
 
 [tools.hk."platforms.windows-x64"]
-checksum = "sha256:028931e00fd670ad891a428bf44e14ac8e2726a8f72b7fae80b27b6502af2be3"
-url = "https://github.com/jdx/hk/releases/download/v2.4.0/hk-x86_64-pc-windows-msvc.zip"
+checksum = "sha256:69fa61c4ef0ea7d25ccb2804b52c31e91be8f7c9cc1176aabe8ea780f3c5b0bb"
+url = "https://github.com/jdx/hk/releases/download/v2.7.0/hk-x86_64-pc-windows-msvc.zip"
 signer = "sigstore-oidc:https://github.com/jdx/hk/.github/workflows/release.yml"
-repository_ids = { repository = "922514152", owner = "216188" }
+
+[[tools.jactionlint]]
+version = "2.3.0"
+backend = "github:jdx/jactionlint"
+specifiers = ["2.3.0"]
+
+[tools.jactionlint."platforms.linux-arm64"]
+checksum = "sha256:deea7744e5769e1e5cc8c9898a838f80a941ec68476d9f2814a61474d5652dac"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.3.0/jactionlint_2.3.0_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/662210370"
+provenance = "github-attestations"
+
+[tools.jactionlint."platforms.linux-arm64-musl"]
+checksum = "sha256:deea7744e5769e1e5cc8c9898a838f80a941ec68476d9f2814a61474d5652dac"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.3.0/jactionlint_2.3.0_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/662210370"
+provenance = "github-attestations"
+
+[tools.jactionlint."platforms.linux-x64"]
+checksum = "sha256:907e6f6a59e181879f7e6936e19ee2eca1cbc51de134fb85460cfa8d65a71f28"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.3.0/jactionlint_2.3.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/662210498"
+provenance = "github-attestations"
+
+[tools.jactionlint."platforms.linux-x64-musl"]
+checksum = "sha256:907e6f6a59e181879f7e6936e19ee2eca1cbc51de134fb85460cfa8d65a71f28"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.3.0/jactionlint_2.3.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/662210498"
+provenance = "github-attestations"
+
+[tools.jactionlint."platforms.macos-arm64"]
+checksum = "sha256:f96afa36578b21290203ae8df4fa7ac3bf5aba08ed288df28cb0530af7ca6e55"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.3.0/jactionlint_2.3.0_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/662210452"
+provenance = "github-attestations"
+
+[tools.jactionlint."platforms.macos-x64"]
+checksum = "sha256:a61006b669ec0ab1266c73e3561eecf839537eb6e8b3b6be766a55ba17fcbe42"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.3.0/jactionlint_2.3.0_darwin_amd64.tar.gz"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/662210428"
+provenance = "github-attestations"
+
+[tools.jactionlint."platforms.windows-x64"]
+checksum = "sha256:9864d1045bd37fddb2df33bf4d6b45de205c0ce133c52a225928b7ede7d7f3eb"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.3.0/jactionlint_2.3.0_windows_amd64.zip"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/662210534"
+provenance = "github-attestations"
 
 [[tools.oxfmt]]
 version = "0.71.0"
@@ -329,6 +357,46 @@ checksum = "sha256:8b4d0f45e67c5b17aecfe992335d285019095d3f2994befc9ea44ee4cde98
 url = "https://github.com/rvben/rumdl/releases/download/v0.2.77/rumdl-v0.2.77-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/rvben/rumdl/releases/assets/583859183"
 provenance = "github-attestations"
+
+[[tools.shellcheck]]
+version = "0.11.0"
+backend = "aqua:koalaman/shellcheck"
+specifiers = ["0.11.0"]
+
+[tools.shellcheck."platforms.linux-arm64"]
+checksum = "sha256:12b331c1d2db6b9eb13cfca64306b1b157a86eb69db83023e261eaa7e7c14588"
+url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.aarch64.tar.xz"
+url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056934"
+
+[tools.shellcheck."platforms.linux-arm64-musl"]
+checksum = "sha256:12b331c1d2db6b9eb13cfca64306b1b157a86eb69db83023e261eaa7e7c14588"
+url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.aarch64.tar.xz"
+url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056934"
+
+[tools.shellcheck."platforms.linux-x64"]
+checksum = "sha256:8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz"
+url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056942"
+
+[tools.shellcheck."platforms.linux-x64-musl"]
+checksum = "sha256:8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz"
+url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056942"
+
+[tools.shellcheck."platforms.macos-arm64"]
+checksum = "sha256:56affdd8de5527894dca6dc3d7e0a99a873b0f004d7aabc30ae407d3f48b0a79"
+url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.aarch64.tar.xz"
+url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056932"
+
+[tools.shellcheck."platforms.macos-x64"]
+checksum = "sha256:3c89db4edcab7cf1c27bff178882e0f6f27f7afdf54e859fa041fca10febe4c6"
+url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.x86_64.tar.xz"
+url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056930"
+
+[tools.shellcheck."platforms.windows-x64"]
+checksum = "sha256:8a4e35ab0b331c85d73567b12f2a444df187f483e5079ceffa6bda1faa2e740e"
+url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.zip"
+url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056944"
 
 [[tools.typos]]
 version = "1.50.3"
